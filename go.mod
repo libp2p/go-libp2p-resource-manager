@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/libp2p/go-buffer-pool v0.0.2
-	github.com/libp2p/go-libp2p-core v0.13.1-0.20211222091732-aeb9233f0e8b
+	github.com/libp2p/go-libp2p-core v0.13.1-0.20211222101052-d997bbb6c565
 )
 
 require (
