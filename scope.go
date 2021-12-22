@@ -57,6 +57,11 @@ func (rc *ResourceScope) ReleaseMemory(size int) {
 	defer rc.Unlock()
 
 	rc.memory -= int64(size)
+
+	// sanity check for bugs upstream
+	if rc.memory < 0 {
+		panic("BUG: too much memory released")
+	}
 }
 
 func (rc *ResourceScope) GetBuffer(size int) ([]byte, error) {
