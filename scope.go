@@ -18,12 +18,27 @@ type ResourceScope struct {
 
 var _ network.ResourceScope = (*ResourceScope)(nil)
 
+func (rc *ResourceScope) checkMemory(rsvp int) error {
+	// overflow check; this also has the side-effect that we cannot reserve negative memory.
+	newmem := rc.memory + int64(rsvp)
+	if newmem < rc.memory {
+		return fmt.Errorf("memory reservation overflow: %w", ErrResourceLimitExceeded)
+	}
+
+	// limit check
+	if newmem > rc.limit.GetMemoryLimit() {
+		return fmt.Errorf("cannot reserve memory: %w", ErrResourceLimitExceeded)
+	}
+
+	return nil
+}
+
 func (rc *ResourceScope) ReserveMemory(size int) error {
 	rc.Lock()
 	defer rc.Unlock()
 
-	if rc.memory+int64(size) > rc.limit.GetMemoryLimit() {
-		return fmt.Errorf("cannot reserve memory: %w", ErrResourceLimitExceeded)
+	if err := rc.checkMemory(size); err != nil {
+		return err
 	}
 
 	rc.memory += int64(size)
@@ -41,8 +56,8 @@ func (rc *ResourceScope) GetBuffer(size int) ([]byte, error) {
 	rc.Lock()
 	defer rc.Unlock()
 
-	if rc.memory+int64(size) > rc.limit.GetMemoryLimit() {
-		return nil, fmt.Errorf("cannot reserve memory: %w", ErrResourceLimitExceeded)
+	if err := rc.checkMemory(size); err != nil {
+		return nil, err
 	}
 
 	buf := pool.Get(size)
@@ -53,22 +68,19 @@ func (rc *ResourceScope) GetBuffer(size int) ([]byte, error) {
 	return buf, nil
 }
 
-func (rc *ResourceScope) GrowBuffer(oldbuf []byte, newsize, ncopy int) ([]byte, error) {
+func (rc *ResourceScope) GrowBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 	rc.Lock()
 	defer rc.Unlock()
 
-	grow := int64(newsize - len(oldbuf))
-	if rc.memory+grow > rc.limit.GetMemoryLimit() {
-		return nil, fmt.Errorf("cannot reserve memory: %w", ErrResourceLimitExceeded)
+	grow := newsize - len(oldbuf)
+	if err := rc.checkMemory(grow); err != nil {
+		return nil, err
 	}
 
 	newbuf := pool.Get(newsize)
+	copy(newbuf, oldbuf)
 
-	if ncopy > 0 {
-		copy(newbuf, oldbuf[:ncopy])
-	}
-
-	rc.memory += grow
+	rc.memory += int64(grow)
 	rc.buffers[newbuf] = newbuf
 	delete(rc.buffers, oldbuf)
 
@@ -80,6 +92,12 @@ func (rc *ResourceScope) ReleaseBuffer(buf []byte) {
 	defer rc.Unlock()
 
 	rc.memory -= int64(len(buf))
+
+	// sanity check for bugs upstream
+	if rc.memory < 0 {
+		panic("BUG: too much memory released")
+	}
+
 	delete(rc.buffers, buf)
 	pool.Put(buf)
 }
