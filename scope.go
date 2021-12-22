@@ -33,6 +33,13 @@ func (rc *ResourceScope) checkMemory(rsvp int) error {
 	return nil
 }
 
+func (rc *ResourceScope) releaseBuffers() {
+	for key, buf := range rc.buffers {
+		pool.Put(buf)
+		delete(rc.buffers, key)
+	}
+}
+
 func (rc *ResourceScope) ReserveMemory(size int) error {
 	rc.Lock()
 	defer rc.Unlock()
