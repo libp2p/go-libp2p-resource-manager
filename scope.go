@@ -41,6 +41,10 @@ func (rc *ResourceScope) releaseBuffers() {
 }
 
 func (rc *ResourceScope) ReserveMemory(size int) error {
+	if rc == nil {
+		return nil
+	}
+
 	rc.Lock()
 	defer rc.Unlock()
 
@@ -53,6 +57,10 @@ func (rc *ResourceScope) ReserveMemory(size int) error {
 }
 
 func (rc *ResourceScope) ReleaseMemory(size int) {
+	if rc == nil {
+		return
+	}
+
 	rc.Lock()
 	defer rc.Unlock()
 
@@ -65,6 +73,10 @@ func (rc *ResourceScope) ReleaseMemory(size int) {
 }
 
 func (rc *ResourceScope) GetBuffer(size int) ([]byte, error) {
+	if rc == nil {
+		return make([]byte, size), nil
+	}
+
 	rc.Lock()
 	defer rc.Unlock()
 
@@ -81,6 +93,12 @@ func (rc *ResourceScope) GetBuffer(size int) ([]byte, error) {
 }
 
 func (rc *ResourceScope) GrowBuffer(oldbuf []byte, newsize int) ([]byte, error) {
+	if rc == nil {
+		newbuf := make([]byte, newsize)
+		copy(newbuf, oldbuf)
+		return newbuf, nil
+	}
+
 	rc.Lock()
 	defer rc.Unlock()
 
@@ -115,6 +133,10 @@ func (rc *ResourceScope) ReleaseBuffer(buf []byte) {
 }
 
 func (rc *ResourceScope) Stat() network.ScopeStat {
+	if rc == nil {
+		return network.ScopeStat{}
+	}
+
 	rc.Lock()
 	defer rc.Unlock()
 
