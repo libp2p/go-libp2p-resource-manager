@@ -9,7 +9,7 @@ import (
 )
 
 // Basic resource mamagement.
-type BasicResourceScope struct {
+type Resources struct {
 	limit    Limit
 	nconns   int
 	nstreams int
@@ -18,11 +18,11 @@ type BasicResourceScope struct {
 }
 
 // DAG ResourceScopes. A
-// BasicResourceScope accounts for the node usage, constraints signify
+// Resources accounts for the node usage, constraints signify
 // the dependencies that constrains resource usage.
 type ResourceScope struct {
 	mx   sync.Mutex
-	rc   *BasicResourceScope
+	rc   *Resources
 	done bool
 
 	constraints []*ResourceScope
@@ -31,8 +31,8 @@ type ResourceScope struct {
 var _ network.ResourceScope = (*ResourceScope)(nil)
 var _ network.TransactionalScope = (*ResourceScope)(nil)
 
-// BasicResourceScope implementation
-func (rc *BasicResourceScope) checkMemory(rsvp int) error {
+// Resources implementation
+func (rc *Resources) checkMemory(rsvp int) error {
 	// overflow check; this also has the side-effect that we cannot reserve negative memory.
 	newmem := rc.memory + int64(rsvp)
 	if newmem < rc.memory {
@@ -47,14 +47,14 @@ func (rc *BasicResourceScope) checkMemory(rsvp int) error {
 	return nil
 }
 
-func (rc *BasicResourceScope) releaseBuffers() {
+func (rc *Resources) releaseBuffers() {
 	for key, buf := range rc.buffers {
 		pool.Put(buf)
 		delete(rc.buffers, key)
 	}
 }
 
-func (rc *BasicResourceScope) reserveMemory(size int) error {
+func (rc *Resources) reserveMemory(size int) error {
 	if err := rc.checkMemory(size); err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (rc *BasicResourceScope) reserveMemory(size int) error {
 	return nil
 }
 
-func (rc *BasicResourceScope) releaseMemory(size int64) {
+func (rc *Resources) releaseMemory(size int64) {
 	rc.memory -= size
 
 	// sanity check for bugs upstream
@@ -72,7 +72,7 @@ func (rc *BasicResourceScope) releaseMemory(size int64) {
 	}
 }
 
-func (rc *BasicResourceScope) getBuffer(size int) ([]byte, error) {
+func (rc *Resources) getBuffer(size int) ([]byte, error) {
 	if err := rc.checkMemory(size); err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (rc *BasicResourceScope) getBuffer(size int) ([]byte, error) {
 	return buf, nil
 }
 
-func (rc *BasicResourceScope) growBuffer(oldbuf []byte, newsize int) ([]byte, error) {
+func (rc *Resources) growBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 	grow := newsize - len(oldbuf)
 	if err := rc.checkMemory(grow); err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (rc *BasicResourceScope) growBuffer(oldbuf []byte, newsize int) ([]byte, er
 	return newbuf, nil
 }
 
-func (rc *BasicResourceScope) releaseBuffer(buf []byte) {
+func (rc *Resources) releaseBuffer(buf []byte) {
 	rc.memory -= int64(len(buf))
 
 	// sanity check for bugs upstream
@@ -113,7 +113,7 @@ func (rc *BasicResourceScope) releaseBuffer(buf []byte) {
 	pool.Put(buf)
 }
 
-func (rc *BasicResourceScope) addStream(count int) error {
+func (rc *Resources) addStream(count int) error {
 	if rc.nstreams+count > rc.limit.GetStreamLimit() {
 		return fmt.Errorf("cannot reserve stream: %w", ErrResourceLimitExceeded)
 	}
@@ -122,7 +122,7 @@ func (rc *BasicResourceScope) addStream(count int) error {
 	return nil
 }
 
-func (rc *BasicResourceScope) removeStream(count int) {
+func (rc *Resources) removeStream(count int) {
 	rc.nstreams -= count
 
 	if rc.nstreams < 0 {
@@ -130,7 +130,7 @@ func (rc *BasicResourceScope) removeStream(count int) {
 	}
 }
 
-func (rc *BasicResourceScope) addConn(count int) error {
+func (rc *Resources) addConn(count int) error {
 	if rc.nconns+count > rc.limit.GetConnLimit() {
 		return fmt.Errorf("cannot reserve connection: %w", ErrResourceLimitExceeded)
 	}
@@ -139,7 +139,7 @@ func (rc *BasicResourceScope) addConn(count int) error {
 	return nil
 }
 
-func (rc *BasicResourceScope) removeConn(count int) {
+func (rc *Resources) removeConn(count int) {
 	rc.nconns -= count
 
 	if rc.nconns < 0 {
@@ -147,7 +147,7 @@ func (rc *BasicResourceScope) removeConn(count int) {
 	}
 }
 
-func (rc *BasicResourceScope) stat() network.ScopeStat {
+func (rc *Resources) stat() network.ScopeStat {
 	return network.ScopeStat{
 		Memory:     rc.memory,
 		NumConns:   rc.nconns,
