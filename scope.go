@@ -394,12 +394,20 @@ func (s *ResourceScope) AddStreamForChild(incount, outcount int) error {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.done {
+		return ErrResourceScopeClosed
+	}
+
 	return s.rc.addStream(incount, outcount)
 }
 
 func (s *ResourceScope) RemoveStream(dir network.Direction) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
 
 	var incount, outcount int
 	if dir == network.DirInbound {
@@ -417,6 +425,11 @@ func (s *ResourceScope) RemoveStream(dir network.Direction) {
 func (s *ResourceScope) RemoveStreamForChild(incount, outcount int) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
+
 	s.rc.removeStream(incount, outcount)
 }
 
@@ -460,12 +473,20 @@ func (s *ResourceScope) AddConnForChild(incount, outcount int) error {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.done {
+		return ErrResourceScopeClosed
+	}
+
 	return s.rc.addConn(incount, outcount)
 }
 
 func (s *ResourceScope) RemoveConn(dir network.Direction) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
 
 	var incount, outcount int
 	if dir == network.DirInbound {
@@ -483,12 +504,21 @@ func (s *ResourceScope) RemoveConn(dir network.Direction) {
 func (s *ResourceScope) RemoveConnForChild(incount, outcount int) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
+
 	s.rc.removeConn(incount, outcount)
 }
 
 func (s *ResourceScope) AddFD(count int) error {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return ErrResourceScopeClosed
+	}
 
 	if err := s.rc.addFD(count); err != nil {
 		return err
@@ -515,12 +545,21 @@ func (s *ResourceScope) AddFD(count int) error {
 func (s *ResourceScope) AddFDForChild(count int) error {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return ErrResourceScopeClosed
+	}
+
 	return s.rc.addFD(count)
 }
 
 func (s *ResourceScope) RemoveFD(count int) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
 
 	s.rc.removeFD(count)
 	for _, cst := range s.constraints {
@@ -531,6 +570,11 @@ func (s *ResourceScope) RemoveFD(count int) {
 func (s *ResourceScope) RemoveFDForChild(count int) {
 	s.Lock()
 	defer s.Unlock()
+
+	if s.done {
+		return
+	}
+
 	s.rc.removeFD(count)
 }
 
