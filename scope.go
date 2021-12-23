@@ -17,7 +17,7 @@ type Resources struct {
 	buffers  map[interface{}][]byte
 }
 
-// DAG ResourceScopes. A
+// DAG ResourceScopes.
 // Resources accounts for the node usage, constraints signify
 // the dependencies that constrains resource usage.
 type ResourceScope struct {
