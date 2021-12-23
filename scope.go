@@ -113,7 +113,7 @@ func (rc *Resources) growBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 
 	_, ok := rc.buffers[oldbuf]
 	if !ok {
-		return nil, fmt.Errorf("cannot grow unknown buffer")
+		return nil, fmt.Errorf("invalid buffer; cannot grow buffer not allocated through this scope")
 	}
 
 	newbuf := pool.Get(newsize)
