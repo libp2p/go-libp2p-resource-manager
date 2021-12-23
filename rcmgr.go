@@ -115,7 +115,7 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	}
 
 	if err := conn.AddFD(1); err != nil {
-		conn.RemoveStream(dir)
+		conn.RemoveConn(dir)
 		return nil, err
 	}
 
