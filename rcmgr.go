@@ -123,24 +123,30 @@ func NewResourceManager(limits Limiter) *ResourceManager {
 	return r
 }
 
-func (r *ResourceManager) GetSystem() network.ResourceScope {
-	return r.system
+func (r *ResourceManager) ViewSystem(f func(network.ResourceScope) error) error {
+	return f(r.system)
 }
 
-func (r *ResourceManager) GetTransient() network.ResourceScope {
-	return r.transient
+func (r *ResourceManager) ViewTransient(f func(network.ResourceScope) error) error {
+	return f(r.transient)
 }
 
-func (r *ResourceManager) GetService(srv string) network.ServiceScope {
-	return r.getServiceScope(srv)
+func (r *ResourceManager) ViewService(srv string, f func(network.ServiceScope) error) error {
+	return f(r.getServiceScope(srv))
 }
 
-func (r *ResourceManager) GetProtocol(proto protocol.ID) network.ProtocolScope {
-	return r.getProtocolScope(proto)
+func (r *ResourceManager) ViewProtocol(proto protocol.ID, f func(network.ProtocolScope) error) error {
+	s := r.getProtocol(proto)
+	defer s.DecRef()
+
+	return f(s)
 }
 
-func (r *ResourceManager) GetPeer(p peer.ID) network.PeerScope {
-	return r.getPeerScope(p)
+func (r *ResourceManager) ViewPeer(p peer.ID, f func(network.PeerScope) error) error {
+	s := r.getPeerScope(p)
+	defer s.DecRef()
+
+	return f(s)
 }
 
 func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
