@@ -36,8 +36,7 @@ var _ network.TransactionalScope = (*ResourceScope)(nil)
 
 func NewResources(limit Limit) *Resources {
 	return &Resources{
-		limit:   limit,
-		buffers: make(map[interface{}][]byte),
+		limit: limit,
 	}
 }
 
@@ -97,6 +96,9 @@ func (rc *Resources) getBuffer(size int) ([]byte, error) {
 	buf := pool.Get(size)
 
 	rc.memory += int64(size)
+	if rc.buffers == nil {
+		rc.buffers = make(map[interface{}][]byte)
+	}
 	rc.buffers[buf] = buf
 
 	return buf, nil
@@ -106,6 +108,11 @@ func (rc *Resources) growBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 	grow := newsize - len(oldbuf)
 	if err := rc.checkMemory(int64(grow)); err != nil {
 		return nil, err
+	}
+
+	_, ok := rc.buffers[oldbuf]
+	if !ok {
+		return nil, fmt.Errorf("cannot grow unknown buffer")
 	}
 
 	newbuf := pool.Get(newsize)
@@ -119,6 +126,11 @@ func (rc *Resources) growBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 }
 
 func (rc *Resources) releaseBuffer(buf []byte) {
+	_, ok := rc.buffers[buf]
+	if !ok {
+		panic("BUG: release unknown buffer")
+	}
+
 	rc.memory -= int64(len(buf))
 
 	// sanity check for bugs upstream
