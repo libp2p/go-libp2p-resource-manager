@@ -19,7 +19,7 @@ type Resources struct {
 
 // DAG ResourceScopes.
 // Resources accounts for the node usage, constraints signify
-// the dependencies that constrains resource usage.
+// the dependencies that constrain resource usage.
 type ResourceScope struct {
 	mx   sync.Mutex
 	rc   *Resources
@@ -410,9 +410,10 @@ func (s *ResourceScope) Done() {
 
 	s.rc.releaseBuffers()
 
-	s.rc.memory = 0
 	s.rc.nstreams = 0
 	s.rc.nconns = 0
+	s.rc.memory = 0
+	s.rc.buffers = nil
 
 	s.done = true
 }
