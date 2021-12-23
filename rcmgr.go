@@ -81,6 +81,8 @@ type ConnectionScope struct {
 	system    *SystemScope
 	transient *TransientScope
 	peer      *PeerScope
+
+	onceDone sync.Once
 }
 
 var _ network.ConnectionScope = (*ConnectionScope)(nil)
@@ -95,6 +97,8 @@ type StreamScope struct {
 	peer      *PeerScope
 	svc       *ServiceScope
 	proto     *ProtocolScope
+
+	onceDone sync.Once
 }
 
 var _ network.StreamScope = (*StreamScope)(nil)
@@ -381,9 +385,11 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 }
 
 func (s *ConnectionScope) Done() {
-	if s.peer != nil {
-		s.peer.DecRef()
-	}
+	s.onceDone.Do(func() {
+		if s.peer != nil {
+			s.peer.DecRef()
+		}
+	})
 
 	s.ResourceScope.Done()
 }
@@ -492,11 +498,13 @@ func (s *StreamScope) PeerScope() network.PeerScope {
 }
 
 func (s *StreamScope) Done() {
-	s.peer.DecRef()
+	s.onceDone.Do(func() {
+		s.peer.DecRef()
 
-	if s.proto != nil {
-		s.proto.DecRef()
-	}
+		if s.proto != nil {
+			s.proto.DecRef()
+		}
+	})
 
 	s.ResourceScope.Done()
 }
