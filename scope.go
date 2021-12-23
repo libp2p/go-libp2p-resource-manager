@@ -205,9 +205,12 @@ func (rc *Resources) removeFD(count int) {
 
 func (rc *Resources) stat() network.ScopeStat {
 	return network.ScopeStat{
-		Memory:     rc.memory,
-		NumConns:   rc.nconnsIn + rc.nconnsOut,
-		NumStreams: rc.nstreamsIn + rc.nstreamsOut,
+		Memory:             rc.memory,
+		NumStreamsInbound:  rc.nstreamsIn,
+		NumStreamsOutbound: rc.nstreamsOut,
+		NumConnsInbound:    rc.nconnsIn,
+		NumConnsOutbound:   rc.nconnsOut,
+		NumFD:              rc.nfd,
 	}
 }
 
