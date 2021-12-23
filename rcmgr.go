@@ -297,11 +297,8 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	constraints := []*ResourceScope{
 		s.peer.ResourceScope,
 		s.proto.ResourceScope,
+		s.system.ResourceScope,
 	}
-	if s.svc != nil {
-		constraints = append(constraints, s.svc.ResourceScope)
-	}
-	constraints = append(constraints, s.system.ResourceScope)
 	s.ResourceScope.constraints = constraints
 
 	return nil
