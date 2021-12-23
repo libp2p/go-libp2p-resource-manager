@@ -25,7 +25,8 @@ type Resources struct {
 // the dependencies that constrain resource usage.
 type ResourceScope struct {
 	sync.Mutex
-	done bool
+	done   bool
+	refCnt int
 
 	rc          *Resources
 	constraints []*ResourceScope
@@ -568,8 +569,33 @@ func (s *ResourceScope) Stat() network.ScopeStat {
 	return s.rc.stat()
 }
 
-func (s *ResourceScope) IsEmpty() bool {
-	st := s.Stat()
+func (s *ResourceScope) IncRef() {
+	s.Lock()
+	defer s.Unlock()
+
+	s.refCnt++
+}
+
+func (s *ResourceScope) DecRef() {
+	s.Lock()
+	defer s.Unlock()
+
+	s.refCnt--
+}
+
+func (s *ResourceScope) IsUnused() bool {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.done {
+		return true
+	}
+
+	if s.refCnt > 0 {
+		return false
+	}
+
+	st := s.rc.stat()
 	return st.NumStreamsInbound == 0 &&
 		st.NumStreamsOutbound == 0 &&
 		st.NumConnsInbound == 0 &&

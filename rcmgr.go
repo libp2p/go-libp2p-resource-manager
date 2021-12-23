@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/network"
@@ -58,8 +57,6 @@ type ProtocolScope struct {
 
 	proto  protocol.ID
 	system *SystemScope
-
-	refCnt int32
 }
 
 var _ network.ProtocolScope = (*ProtocolScope)(nil)
@@ -71,8 +68,6 @@ type PeerScope struct {
 	rcmgr     *ResourceManager
 	system    *SystemScope
 	transient *TransientScope
-
-	refCnt int32
 }
 
 var _ network.PeerScope = (*PeerScope)(nil)
@@ -136,7 +131,7 @@ func (r *ResourceManager) ViewService(srv string, f func(network.ServiceScope) e
 }
 
 func (r *ResourceManager) ViewProtocol(proto protocol.ID, f func(network.ProtocolScope) error) error {
-	s := r.getProtocol(proto)
+	s := r.getProtocolScope(proto)
 	defer s.DecRef()
 
 	return f(s)
@@ -315,18 +310,6 @@ func (s *ProtocolScope) Protocol() protocol.ID {
 	return s.proto
 }
 
-func (s *ProtocolScope) IncRef() {
-	atomic.AddInt32(&s.refCnt, 1)
-}
-
-func (s *ProtocolScope) DecRef() {
-	atomic.AddInt32(&s.refCnt, -1)
-}
-
-func (s *ProtocolScope) IsUnused() bool {
-	return atomic.LoadInt32(&s.refCnt) == 0 && s.IsEmpty()
-}
-
 func (s *PeerScope) Peer() peer.ID {
 	return s.peer
 }
@@ -339,18 +322,6 @@ func (s *PeerScope) OpenStream(dir network.Direction) (network.StreamScope, erro
 	}
 
 	return stream, nil
-}
-
-func (s *PeerScope) IncRef() {
-	atomic.AddInt32(&s.refCnt, 1)
-}
-
-func (s *PeerScope) DecRef() {
-	atomic.AddInt32(&s.refCnt, -1)
-}
-
-func (s *PeerScope) IsUnused() bool {
-	return atomic.LoadInt32(&s.refCnt) == 0 && s.IsEmpty()
 }
 
 func (s *ConnectionScope) PeerScope() network.PeerScope {
