@@ -21,15 +21,29 @@ type Resources struct {
 // Resources accounts for the node usage, constraints signify
 // the dependencies that constrain resource usage.
 type ResourceScope struct {
-	mx   sync.Mutex
-	rc   *Resources
+	sync.Mutex
 	done bool
 
+	rc          *Resources
 	constraints []*ResourceScope
 }
 
 var _ network.ResourceScope = (*ResourceScope)(nil)
 var _ network.TransactionalScope = (*ResourceScope)(nil)
+
+func NewResources(limit Limit) *Resources {
+	return &Resources{
+		limit:   limit,
+		buffers: make(map[interface{}][]byte),
+	}
+}
+
+func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope {
+	return &ResourceScope{
+		rc:          NewResources(limit),
+		constraints: constraints,
+	}
+}
 
 // Resources implementation
 func (rc *Resources) checkMemory(rsvp int) error {
@@ -157,8 +171,8 @@ func (rc *Resources) stat() network.ScopeStat {
 
 // ResourceScope implementation
 func (s *ResourceScope) ReserveMemory(size int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return ErrResourceScopeClosed
@@ -197,8 +211,8 @@ func (s *ResourceScope) reserveMemoryForConstraints(size int) error {
 }
 
 func (s *ResourceScope) ReserveMemoryForChild(size int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return ErrResourceScopeClosed
@@ -208,8 +222,8 @@ func (s *ResourceScope) ReserveMemoryForChild(size int) error {
 }
 
 func (s *ResourceScope) ReleaseMemory(size int) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return
@@ -222,8 +236,8 @@ func (s *ResourceScope) ReleaseMemory(size int) {
 }
 
 func (s *ResourceScope) ReleaseMemoryForChild(size int64) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return
@@ -233,8 +247,8 @@ func (s *ResourceScope) ReleaseMemoryForChild(size int64) {
 }
 
 func (s *ResourceScope) GetBuffer(size int) ([]byte, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return nil, ErrResourceScopeClosed
@@ -254,8 +268,8 @@ func (s *ResourceScope) GetBuffer(size int) ([]byte, error) {
 }
 
 func (s *ResourceScope) GrowBuffer(oldbuf []byte, newsize int) ([]byte, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return nil, ErrResourceScopeClosed
@@ -275,8 +289,8 @@ func (s *ResourceScope) GrowBuffer(oldbuf []byte, newsize int) ([]byte, error) {
 }
 
 func (s *ResourceScope) ReleaseBuffer(buf []byte) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return
@@ -289,8 +303,8 @@ func (s *ResourceScope) ReleaseBuffer(buf []byte) {
 }
 
 func (s *ResourceScope) AddStream(count int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return ErrResourceScopeClosed
@@ -319,15 +333,15 @@ func (s *ResourceScope) AddStream(count int) error {
 }
 
 func (s *ResourceScope) AddStreamForChild(count int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.rc.addStream(count)
 }
 
 func (s *ResourceScope) RemoveStream(count int) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	s.rc.removeStream(count)
 	for _, cst := range s.constraints {
@@ -336,14 +350,14 @@ func (s *ResourceScope) RemoveStream(count int) {
 }
 
 func (s *ResourceScope) RemoveStreamForChild(count int) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.rc.removeStream(count)
 }
 
 func (s *ResourceScope) AddConn(count int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return ErrResourceScopeClosed
@@ -372,15 +386,15 @@ func (s *ResourceScope) AddConn(count int) error {
 }
 
 func (s *ResourceScope) AddConnForChild(count int) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.rc.addConn(count)
 }
 
 func (s *ResourceScope) RemoveConn(count int) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	s.rc.removeConn(count)
 	for _, cst := range s.constraints {
@@ -389,14 +403,14 @@ func (s *ResourceScope) RemoveConn(count int) {
 }
 
 func (s *ResourceScope) RemoveConnForChild(count int) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.rc.removeConn(count)
 }
 
 func (s *ResourceScope) Done() {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if s.done {
 		return
@@ -419,8 +433,8 @@ func (s *ResourceScope) Done() {
 }
 
 func (s *ResourceScope) Stat() network.ScopeStat {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.rc.stat()
 }
