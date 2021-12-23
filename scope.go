@@ -567,3 +567,12 @@ func (s *ResourceScope) Stat() network.ScopeStat {
 
 	return s.rc.stat()
 }
+
+func (s *ResourceScope) IsEmpty() bool {
+	st := s.Stat()
+	return st.NumStreamsInbound == 0 &&
+		st.NumStreamsOutbound == 0 &&
+		st.NumConnsInbound == 0 &&
+		st.NumConnsOutbound == 0 &&
+		st.NumFD == 0
+}

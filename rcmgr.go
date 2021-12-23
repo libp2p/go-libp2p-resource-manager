@@ -1,8 +1,11 @@
 package rcmgr
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -19,6 +22,10 @@ type ResourceManager struct {
 	svc   map[string]*ServiceScope
 	proto map[protocol.ID]*ProtocolScope
 	peer  map[peer.ID]*PeerScope
+
+	cancelCtx context.Context
+	cancel    func()
+	wg        sync.WaitGroup
 }
 
 var _ network.ResourceManager = (*ResourceManager)(nil)
@@ -51,6 +58,8 @@ type ProtocolScope struct {
 
 	proto  protocol.ID
 	system *SystemScope
+
+	refCnt int32
 }
 
 var _ network.ProtocolScope = (*ProtocolScope)(nil)
@@ -62,6 +71,8 @@ type PeerScope struct {
 	rcmgr     *ResourceManager
 	system    *SystemScope
 	transient *TransientScope
+
+	refCnt int32
 }
 
 var _ network.PeerScope = (*PeerScope)(nil)
@@ -93,6 +104,25 @@ type StreamScope struct {
 
 var _ network.StreamScope = (*StreamScope)(nil)
 
+func NewResourceManager(limits Limiter) *ResourceManager {
+	r := &ResourceManager{
+		limits: limits,
+		svc:    make(map[string]*ServiceScope),
+		proto:  make(map[protocol.ID]*ProtocolScope),
+		peer:   make(map[peer.ID]*PeerScope),
+	}
+
+	r.system = NewSystemScope(limits.GetSystemLimits())
+	r.transient = NewTransientScope(limits.GetSystemLimits(), r.system)
+
+	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
+
+	r.wg.Add(1)
+	go r.background()
+
+	return r
+}
+
 func (r *ResourceManager) GetSystem() network.ResourceScope {
 	return r.system
 }
@@ -113,19 +143,6 @@ func (r *ResourceManager) GetPeer(p peer.ID) network.PeerScope {
 	return r.getPeerScope(p)
 }
 
-func (r *ResourceManager) getProtocolScope(proto protocol.ID) *ProtocolScope {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	s, ok := r.proto[proto]
-	if !ok {
-		s = NewProtocolScope(proto, r.limits.GetProtocolLimits(proto), r.system)
-		r.proto[proto] = s
-	}
-
-	return s
-}
-
 func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
@@ -139,6 +156,20 @@ func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
 	return s
 }
 
+func (r *ResourceManager) getProtocolScope(proto protocol.ID) *ProtocolScope {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	s, ok := r.proto[proto]
+	if !ok {
+		s = NewProtocolScope(proto, r.limits.GetProtocolLimits(proto), r.system)
+		r.proto[proto] = s
+	}
+
+	s.IncRef()
+	return s
+}
+
 func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
@@ -149,6 +180,7 @@ func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
 		r.peer[p] = s
 	}
 
+	s.IncRef()
 	return s
 }
 
@@ -170,8 +202,42 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 }
 
 func (r *ResourceManager) Close() error {
-	// TODO
+	r.cancel()
+	r.wg.Wait()
+
 	return nil
+}
+
+func (r *ResourceManager) background() {
+	// periodically garbage collects unused peer and protocol scopes
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			r.gc()
+		case <-r.cancelCtx.Done():
+			return
+		}
+	}
+}
+
+func (r *ResourceManager) gc() {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	for proto, s := range r.proto {
+		if s.IsUnused() {
+			delete(r.proto, proto)
+		}
+	}
+
+	for p, s := range r.peer {
+		if s.IsUnused() {
+			delete(r.peer, p)
+		}
+	}
 }
 
 func NewSystemScope(limit Limit) *SystemScope {
@@ -243,6 +309,18 @@ func (s *ProtocolScope) Protocol() protocol.ID {
 	return s.proto
 }
 
+func (s *ProtocolScope) IncRef() {
+	atomic.AddInt32(&s.refCnt, 1)
+}
+
+func (s *ProtocolScope) DecRef() {
+	atomic.AddInt32(&s.refCnt, -1)
+}
+
+func (s *ProtocolScope) IsUnused() bool {
+	return atomic.LoadInt32(&s.refCnt) == 0 && s.IsEmpty()
+}
+
 func (s *PeerScope) Peer() peer.ID {
 	return s.peer
 }
@@ -255,6 +333,18 @@ func (s *PeerScope) OpenStream(dir network.Direction) (network.StreamScope, erro
 	}
 
 	return stream, nil
+}
+
+func (s *PeerScope) IncRef() {
+	atomic.AddInt32(&s.refCnt, 1)
+}
+
+func (s *PeerScope) DecRef() {
+	atomic.AddInt32(&s.refCnt, -1)
+}
+
+func (s *PeerScope) IsUnused() bool {
+	return atomic.LoadInt32(&s.refCnt) == 0 && s.IsEmpty()
 }
 
 func (s *ConnectionScope) PeerScope() network.PeerScope {
@@ -311,6 +401,14 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	s.ResourceScope.constraints = constraints
 
 	return nil
+}
+
+func (s *ConnectionScope) Done() {
+	if s.peer != nil {
+		s.peer.DecRef()
+	}
+
+	s.ResourceScope.Done()
 }
 
 func (s *StreamScope) ProtocolScope() network.ProtocolScope {
@@ -414,4 +512,14 @@ func (s *StreamScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.peer
+}
+
+func (s *StreamScope) Done() {
+	s.peer.DecRef()
+
+	if s.proto != nil {
+		s.proto.DecRef()
+	}
+
+	s.ResourceScope.Done()
 }
