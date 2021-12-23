@@ -60,6 +60,7 @@ type ConnectionScope struct {
 	*ResourceScope
 
 	dir       network.Direction
+	usefd     bool
 	rcmgr     *ResourceManager
 	system    *SystemScope
 	transient *TransientScope
@@ -108,15 +109,17 @@ func (r *ResourceManager) getStreamLimit(p peer.ID) Limit {
 }
 
 func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionScope, error) {
-	conn := NewConnectionScope(dir, r.getConnLimit(), r)
+	conn := NewConnectionScope(dir, usefd, r.getConnLimit(), r)
 
 	if err := conn.AddConn(dir); err != nil {
 		return nil, err
 	}
 
-	if err := conn.AddFD(1); err != nil {
-		conn.RemoveConn(dir)
-		return nil, err
+	if usefd {
+		if err := conn.AddFD(1); err != nil {
+			conn.RemoveConn(dir)
+			return nil, err
+		}
 	}
 
 	return conn, nil
@@ -161,10 +164,11 @@ func NewPeerScope(p peer.ID, limit Limit, rcmgr *ResourceManager) *PeerScope {
 	}
 }
 
-func NewConnectionScope(dir network.Direction, limit Limit, rcmgr *ResourceManager) *ConnectionScope {
+func NewConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *ResourceManager) *ConnectionScope {
 	return &ConnectionScope{
 		ResourceScope: NewResourceScope(limit, []*ResourceScope{rcmgr.transient.ResourceScope, rcmgr.system.ResourceScope}),
 		dir:           dir,
+		usefd:         usefd,
 		rcmgr:         rcmgr,
 		system:        rcmgr.system,
 		transient:     rcmgr.transient,
@@ -236,15 +240,19 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 		s.peer.ReleaseMemoryForChild(mem)
 		return err
 	}
-	if err := s.peer.AddFDForChild(1); err != nil {
-		s.peer.ReleaseMemoryForChild(mem)
-		s.peer.RemoveConnForChild(incount, outcount)
-		return err
+	if s.usefd {
+		if err := s.peer.AddFDForChild(1); err != nil {
+			s.peer.ReleaseMemoryForChild(mem)
+			s.peer.RemoveConnForChild(incount, outcount)
+			return err
+		}
 	}
 
 	s.transient.ReleaseMemoryForChild(mem)
 	s.transient.RemoveConnForChild(incount, outcount)
-	s.transient.RemoveFDForChild(1)
+	if s.usefd {
+		s.transient.RemoveFDForChild(1)
+	}
 
 	// update constraints
 	constraints := []*ResourceScope{
