@@ -28,9 +28,6 @@ type ResourceScope struct {
 	done   bool
 	refCnt int
 
-	// for transactional scope reference counting
-	parent *ResourceScope
-
 	rc          *Resources
 	constraints []*ResourceScope
 }
@@ -45,16 +42,10 @@ func NewResources(limit Limit) *Resources {
 }
 
 func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope {
-	return &ResourceScope{
-		rc:          NewResources(limit),
-		constraints: constraints,
+	for _, cst := range constraints {
+		cst.IncRef()
 	}
-}
-
-func NewTxnResourceScope(parent *ResourceScope, limit Limit, constraints []*ResourceScope) *ResourceScope {
-	parent.IncRef()
 	return &ResourceScope{
-		parent:      parent,
 		rc:          NewResources(limit),
 		constraints: constraints,
 	}
@@ -602,7 +593,7 @@ func (s *ResourceScope) BeginTxn() (network.TransactionalScope, error) {
 	constraints[0] = s
 	copy(constraints[1:], s.constraints)
 
-	return NewTxnResourceScope(s, s.rc.limit, constraints), nil
+	return NewResourceScope(s.rc.limit, constraints), nil
 }
 
 func (s *ResourceScope) Done() {
@@ -618,10 +609,7 @@ func (s *ResourceScope) Done() {
 		cst.RemoveStreamForChild(s.rc.nstreamsIn, s.rc.nstreamsOut)
 		cst.RemoveConnForChild(s.rc.nconnsIn, s.rc.nconnsOut)
 		cst.RemoveFDForChild(s.rc.nfd)
-	}
-
-	if s.parent != nil {
-		s.parent.DecRef()
+		cst.DecRef()
 	}
 
 	s.rc.releaseBuffers()

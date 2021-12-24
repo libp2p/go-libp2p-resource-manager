@@ -114,7 +114,9 @@ func NewResourceManager(limits Limiter) *ResourceManager {
 	}
 
 	r.system = NewSystemScope(limits.GetSystemLimits())
+	r.system.IncRef()
 	r.transient = NewTransientScope(limits.GetSystemLimits(), r.system)
+	r.transient.IncRef()
 
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
 
@@ -133,7 +135,10 @@ func (r *ResourceManager) ViewTransient(f func(network.ResourceScope) error) err
 }
 
 func (r *ResourceManager) ViewService(srv string, f func(network.ServiceScope) error) error {
-	return f(r.getServiceScope(srv))
+	s := r.getServiceScope(srv)
+	defer s.DecRef()
+
+	return f(s)
 }
 
 func (r *ResourceManager) ViewProtocol(proto protocol.ID, f func(network.ProtocolScope) error) error {
@@ -160,6 +165,7 @@ func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
 		r.svc[svc] = s
 	}
 
+	s.IncRef()
 	return s
 }
 
@@ -195,12 +201,13 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	conn := NewConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
 	if err := conn.AddConn(dir); err != nil {
+		conn.Done()
 		return nil, err
 	}
 
 	if usefd {
 		if err := conn.AddFD(1); err != nil {
-			conn.RemoveConn(dir)
+			conn.Done()
 			return nil, err
 		}
 	}
@@ -211,9 +218,11 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamScope, error) {
 	peer := r.getPeerScope(p)
 	stream := NewStreamScope(dir, r.limits.GetStreamLimits(p), peer)
+	peer.DecRef() // we have the reference in constraints
 
 	err := stream.AddStream(dir)
 	if err != nil {
+		stream.Done()
 		return nil, err
 	}
 
@@ -358,16 +367,19 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	}
 
 	if err := s.peer.ReserveMemoryForChild(mem); err != nil {
+		s.peer.DecRef()
 		return err
 	}
 	if err := s.peer.AddConnForChild(incount, outcount); err != nil {
 		s.peer.ReleaseMemoryForChild(mem)
+		s.peer.DecRef()
 		return err
 	}
 	if s.usefd {
 		if err := s.peer.AddFDForChild(1); err != nil {
 			s.peer.ReleaseMemoryForChild(mem)
 			s.peer.RemoveConnForChild(incount, outcount)
+			s.peer.DecRef()
 			return err
 		}
 	}
@@ -377,6 +389,7 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	if s.usefd {
 		s.transient.RemoveFDForChild(1)
 	}
+	s.transient.DecRef()
 
 	// update constraints
 	constraints := []*ResourceScope{
@@ -386,16 +399,6 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	s.ResourceScope.constraints = constraints
 
 	return nil
-}
-
-func (s *ConnectionScope) Done() {
-	s.onceDone.Do(func() {
-		if s.peer != nil {
-			s.peer.DecRef()
-		}
-	})
-
-	s.ResourceScope.Done()
 }
 
 func (s *StreamScope) ProtocolScope() network.ProtocolScope {
@@ -425,15 +428,20 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	}
 
 	if err := s.proto.ReserveMemoryForChild(mem); err != nil {
+		s.proto.DecRef()
+		s.proto = nil
 		return err
 	}
 	if err := s.proto.AddStreamForChild(incount, outcount); err != nil {
 		s.proto.ReleaseMemoryForChild(mem)
+		s.proto.DecRef()
+		s.proto = nil
 		return err
 	}
 
 	s.transient.ReleaseMemoryForChild(mem)
 	s.transient.RemoveStreamForChild(incount, outcount)
+	s.transient.DecRef() // removed from constraints
 
 	// update constraints
 	constraints := []*ResourceScope{
@@ -476,10 +484,14 @@ func (s *StreamScope) SetService(svc string) error {
 	}
 
 	if err := s.svc.ReserveMemoryForChild(mem); err != nil {
+		s.svc.DecRef()
+		s.svc = nil
 		return err
 	}
 	if err := s.svc.AddStreamForChild(incount, outcount); err != nil {
 		s.svc.ReleaseMemoryForChild(mem)
+		s.svc.DecRef()
+		s.svc = nil
 		return err
 	}
 
@@ -499,16 +511,4 @@ func (s *StreamScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.peer
-}
-
-func (s *StreamScope) Done() {
-	s.onceDone.Do(func() {
-		s.peer.DecRef()
-
-		if s.proto != nil {
-			s.proto.DecRef()
-		}
-	})
-
-	s.ResourceScope.Done()
 }
