@@ -86,6 +86,7 @@ type ConnectionScope struct {
 }
 
 var _ network.ConnectionScope = (*ConnectionScope)(nil)
+var _ network.UserConnectionScope = (*ConnectionScope)(nil)
 
 type StreamScope struct {
 	*ResourceScope
@@ -102,6 +103,7 @@ type StreamScope struct {
 }
 
 var _ network.StreamScope = (*StreamScope)(nil)
+var _ network.UserStreamScope = (*StreamScope)(nil)
 
 func NewResourceManager(limits Limiter) *ResourceManager {
 	r := &ResourceManager{
@@ -204,6 +206,18 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	}
 
 	return conn, nil
+}
+
+func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamScope, error) {
+	peer := r.getPeerScope(p)
+	stream := NewStreamScope(dir, r.limits.GetStreamLimits(p), peer)
+
+	err := stream.AddStream(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream, nil
 }
 
 func (r *ResourceManager) Close() error {
@@ -316,16 +330,6 @@ func (s *ProtocolScope) Protocol() protocol.ID {
 
 func (s *PeerScope) Peer() peer.ID {
 	return s.peer
-}
-
-func (s *PeerScope) OpenStream(dir network.Direction) (network.StreamScope, error) {
-	stream := NewStreamScope(dir, s.rcmgr.limits.GetStreamLimits(s.peer), s)
-	err := stream.AddStream(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	return stream, nil
 }
 
 func (s *ConnectionScope) PeerScope() network.PeerScope {
