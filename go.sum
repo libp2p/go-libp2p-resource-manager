@@ -27,8 +27,8 @@ github.com/kkdai/bstream v0.0.0-20161212061736-f391b8402d23/go.mod h1:J+Gs4SYgM6
 github.com/libp2p/go-buffer-pool v0.0.2 h1:QNK2iAFa8gjAe1SPz6mHSMuCcjs+X1wlHzeOSqcmlfs=
 github.com/libp2p/go-buffer-pool v0.0.2/go.mod h1:MvaB6xw5vOrDl8rYZGLFdKAuk/hRoRZd1Vi32+RXyFM=
 github.com/libp2p/go-flow-metrics v0.0.3/go.mod h1:HeoSNUrOJVK1jEpDqVEiUOIXqhbnS27omG0uWU5slZs=
-github.com/libp2p/go-libp2p-core v0.13.1-0.20211223162132-25d493114264 h1:2ZLLNz560k6t5ZJB3ZLKGdgViHuhTZ2HqzzrM0eMZiA=
-github.com/libp2p/go-libp2p-core v0.13.1-0.20211223162132-25d493114264/go.mod h1:ECdxehoYosLYHgDDFa2N4yE8Y7aQRAMf0sX9mf2sbGg=
+github.com/libp2p/go-libp2p-core v0.13.1-0.20211224090343-deb1c1621cb0 h1:EDR3fwVsVK5nLRVDFl0NqosIz2PG3IE7b+264oXAD7s=
+github.com/libp2p/go-libp2p-core v0.13.1-0.20211224090343-deb1c1621cb0/go.mod h1:ECdxehoYosLYHgDDFa2N4yE8Y7aQRAMf0sX9mf2sbGg=
 github.com/libp2p/go-msgio v0.0.6/go.mod h1:4ecVB6d9f4BDSL5fqvPiC4A3KivjWn+Venn/1ALLMWA=
 github.com/libp2p/go-openssl v0.0.7 h1:eCAzdLejcNVBzP/iZM9vqHnQm+XyCEbSSIheIPRGNsw=
 github.com/libp2p/go-openssl v0.0.7/go.mod h1:unDrJpgy3oFr+rqXsarWifmJuNnJR4chtO1HmaZjggc=
