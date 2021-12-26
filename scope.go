@@ -581,6 +581,53 @@ func (s *ResourceScope) RemoveFDForChild(count int) {
 	s.rc.removeFD(count)
 }
 
+func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.done {
+		return ErrResourceScopeClosed
+	}
+
+	if err := s.rc.reserveMemory(st.Memory); err != nil {
+		return err
+	}
+
+	if err := s.rc.addStream(st.NumStreamsInbound, st.NumStreamsOutbound); err != nil {
+		s.rc.releaseMemory(st.Memory)
+		return err
+	}
+
+	if err := s.rc.addConn(st.NumConnsInbound, st.NumConnsOutbound); err != nil {
+		s.rc.releaseMemory(st.Memory)
+		s.rc.removeStream(st.NumStreamsInbound, st.NumStreamsOutbound)
+		return err
+	}
+
+	if err := s.rc.addFD(st.NumFD); err != nil {
+		s.rc.releaseMemory(st.Memory)
+		s.rc.removeStream(st.NumStreamsInbound, st.NumStreamsOutbound)
+		s.rc.removeConn(st.NumConnsInbound, st.NumConnsOutbound)
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResourceScope) ReleaseForChild(st network.ScopeStat) {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.done {
+		return
+	}
+
+	s.rc.releaseMemory(st.Memory)
+	s.rc.removeStream(st.NumStreamsInbound, st.NumStreamsOutbound)
+	s.rc.removeConn(st.NumConnsInbound, st.NumConnsOutbound)
+	s.rc.removeFD(st.NumFD)
+}
+
 func (s *ResourceScope) BeginTxn() (network.TransactionalScope, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -604,11 +651,9 @@ func (s *ResourceScope) Done() {
 		return
 	}
 
+	stat := s.rc.stat()
 	for _, cst := range s.constraints {
-		cst.ReleaseMemoryForChild(s.rc.memory)
-		cst.RemoveStreamForChild(s.rc.nstreamsIn, s.rc.nstreamsOut)
-		cst.RemoveConnForChild(s.rc.nconnsIn, s.rc.nconnsOut)
-		cst.RemoveFDForChild(s.rc.nfd)
+		cst.ReleaseForChild(stat)
 		cst.DecRef()
 	}
 
