@@ -341,41 +341,14 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	s.peer = s.rcmgr.getPeerScope(p)
 
 	// juggle resources from transient scope to peer scope
-	mem := s.ResourceScope.rc.memory
-
-	var incount, outcount int
-	if s.dir == network.DirInbound {
-		incount = 1
-	} else {
-		outcount = 1
-	}
-
-	if err := s.peer.ReserveMemoryForChild(mem); err != nil {
+	stat := s.ResourceScope.rc.stat()
+	if err := s.peer.ReserveForChild(stat); err != nil {
 		s.peer.DecRef()
 		s.peer = nil
 		return err
 	}
-	if err := s.peer.AddConnForChild(incount, outcount); err != nil {
-		s.peer.ReleaseMemoryForChild(mem)
-		s.peer.DecRef()
-		s.peer = nil
-		return err
-	}
-	if s.usefd {
-		if err := s.peer.AddFDForChild(1); err != nil {
-			s.peer.ReleaseMemoryForChild(mem)
-			s.peer.RemoveConnForChild(incount, outcount)
-			s.peer.DecRef()
-			s.peer = nil
-			return err
-		}
-	}
 
-	s.rcmgr.transient.ReleaseMemoryForChild(mem)
-	s.rcmgr.transient.RemoveConnForChild(incount, outcount)
-	if s.usefd {
-		s.rcmgr.transient.RemoveFDForChild(1)
-	}
+	s.rcmgr.transient.ReleaseForChild(stat)
 	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
@@ -405,29 +378,14 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	s.proto = s.rcmgr.getProtocolScope(proto)
 
 	// juggle resources from transient scope to protocol scope
-	mem := s.ResourceScope.rc.memory
-
-	var incount, outcount int
-	if s.dir == network.DirInbound {
-		incount = 1
-	} else {
-		outcount = 1
-	}
-
-	if err := s.proto.ReserveMemoryForChild(mem); err != nil {
-		s.proto.DecRef()
-		s.proto = nil
-		return err
-	}
-	if err := s.proto.AddStreamForChild(incount, outcount); err != nil {
-		s.proto.ReleaseMemoryForChild(mem)
-		s.proto.DecRef()
-		s.proto = nil
+	stat := s.ResourceScope.rc.stat()
+	if err := s.proto.ReserveForChild(stat); err != nil {
+		s.peer.DecRef()
+		s.peer = nil
 		return err
 	}
 
-	s.rcmgr.transient.ReleaseMemoryForChild(mem)
-	s.rcmgr.transient.RemoveStreamForChild(incount, outcount)
+	s.rcmgr.transient.ReleaseForChild(stat)
 	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
@@ -461,22 +419,7 @@ func (s *StreamScope) SetService(svc string) error {
 	s.svc = s.rcmgr.getServiceScope(svc)
 
 	// reserve resources in service
-	mem := s.ResourceScope.rc.memory
-
-	var incount, outcount int
-	if s.dir == network.DirInbound {
-		incount = 1
-	} else {
-		outcount = 1
-	}
-
-	if err := s.svc.ReserveMemoryForChild(mem); err != nil {
-		s.svc.DecRef()
-		s.svc = nil
-		return err
-	}
-	if err := s.svc.AddStreamForChild(incount, outcount); err != nil {
-		s.svc.ReleaseMemoryForChild(mem)
+	if err := s.svc.ReserveForChild(s.ResourceScope.rc.stat()); err != nil {
 		s.svc.DecRef()
 		s.svc = nil
 		return err
