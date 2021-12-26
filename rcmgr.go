@@ -64,10 +64,8 @@ var _ network.ProtocolScope = (*ProtocolScope)(nil)
 type PeerScope struct {
 	*ResourceScope
 
-	peer      peer.ID
-	rcmgr     *ResourceManager
-	system    *SystemScope
-	transient *TransientScope
+	peer  peer.ID
+	rcmgr *ResourceManager
 }
 
 var _ network.PeerScope = (*PeerScope)(nil)
@@ -75,14 +73,10 @@ var _ network.PeerScope = (*PeerScope)(nil)
 type ConnectionScope struct {
 	*ResourceScope
 
-	dir       network.Direction
-	usefd     bool
-	rcmgr     *ResourceManager
-	system    *SystemScope
-	transient *TransientScope
-	peer      *PeerScope
-
-	onceDone sync.Once
+	dir   network.Direction
+	usefd bool
+	rcmgr *ResourceManager
+	peer  *PeerScope
 }
 
 var _ network.ConnectionScope = (*ConnectionScope)(nil)
@@ -91,15 +85,11 @@ var _ network.UserConnectionScope = (*ConnectionScope)(nil)
 type StreamScope struct {
 	*ResourceScope
 
-	dir       network.Direction
-	rcmgr     *ResourceManager
-	system    *SystemScope
-	transient *TransientScope
-	peer      *PeerScope
-	svc       *ServiceScope
-	proto     *ProtocolScope
-
-	onceDone sync.Once
+	dir   network.Direction
+	rcmgr *ResourceManager
+	peer  *PeerScope
+	svc   *ServiceScope
+	proto *ProtocolScope
 }
 
 var _ network.StreamScope = (*StreamScope)(nil)
@@ -302,8 +292,6 @@ func NewPeerScope(p peer.ID, limit Limit, rcmgr *ResourceManager) *PeerScope {
 		ResourceScope: NewResourceScope(limit, []*ResourceScope{rcmgr.system.ResourceScope}),
 		peer:          p,
 		rcmgr:         rcmgr,
-		system:        rcmgr.system,
-		transient:     rcmgr.transient,
 	}
 }
 
@@ -313,18 +301,14 @@ func NewConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *R
 		dir:           dir,
 		usefd:         usefd,
 		rcmgr:         rcmgr,
-		system:        rcmgr.system,
-		transient:     rcmgr.transient,
 	}
 }
 
 func NewStreamScope(dir network.Direction, limit Limit, peer *PeerScope) *StreamScope {
 	return &StreamScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{peer.ResourceScope, peer.transient.ResourceScope, peer.system.ResourceScope}),
+		ResourceScope: NewResourceScope(limit, []*ResourceScope{peer.ResourceScope, peer.rcmgr.transient.ResourceScope, peer.rcmgr.system.ResourceScope}),
 		dir:           dir,
 		rcmgr:         peer.rcmgr,
-		system:        peer.system,
-		transient:     peer.transient,
 		peer:          peer,
 	}
 }
@@ -368,11 +352,13 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 
 	if err := s.peer.ReserveMemoryForChild(mem); err != nil {
 		s.peer.DecRef()
+		s.peer = nil
 		return err
 	}
 	if err := s.peer.AddConnForChild(incount, outcount); err != nil {
 		s.peer.ReleaseMemoryForChild(mem)
 		s.peer.DecRef()
+		s.peer = nil
 		return err
 	}
 	if s.usefd {
@@ -380,21 +366,22 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 			s.peer.ReleaseMemoryForChild(mem)
 			s.peer.RemoveConnForChild(incount, outcount)
 			s.peer.DecRef()
+			s.peer = nil
 			return err
 		}
 	}
 
-	s.transient.ReleaseMemoryForChild(mem)
-	s.transient.RemoveConnForChild(incount, outcount)
+	s.rcmgr.transient.ReleaseMemoryForChild(mem)
+	s.rcmgr.transient.RemoveConnForChild(incount, outcount)
 	if s.usefd {
-		s.transient.RemoveFDForChild(1)
+		s.rcmgr.transient.RemoveFDForChild(1)
 	}
-	s.transient.DecRef()
+	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
 	constraints := []*ResourceScope{
 		s.peer.ResourceScope,
-		s.system.ResourceScope,
+		s.rcmgr.system.ResourceScope,
 	}
 	s.ResourceScope.constraints = constraints
 
@@ -439,15 +426,15 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 		return err
 	}
 
-	s.transient.ReleaseMemoryForChild(mem)
-	s.transient.RemoveStreamForChild(incount, outcount)
-	s.transient.DecRef() // removed from constraints
+	s.rcmgr.transient.ReleaseMemoryForChild(mem)
+	s.rcmgr.transient.RemoveStreamForChild(incount, outcount)
+	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
 	constraints := []*ResourceScope{
 		s.peer.ResourceScope,
 		s.proto.ResourceScope,
-		s.system.ResourceScope,
+		s.rcmgr.system.ResourceScope,
 	}
 	s.ResourceScope.constraints = constraints
 
@@ -500,7 +487,7 @@ func (s *StreamScope) SetService(svc string) error {
 		s.peer.ResourceScope,
 		s.proto.ResourceScope,
 		s.svc.ResourceScope,
-		s.system.ResourceScope,
+		s.rcmgr.system.ResourceScope,
 	}
 	s.ResourceScope.constraints = constraints
 
