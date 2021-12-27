@@ -114,36 +114,56 @@ func TestResources(t *testing.T) {
 	}
 	checkResources(t, rc, network.ScopeStat{})
 
-	if err := rc.addStream(1, 1); err != nil {
+	if err := rc.addStream(network.DirInbound); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, rc, network.ScopeStat{NumStreamsInbound: 1, NumStreamsOutbound: 1})
+	checkResources(t, rc, network.ScopeStat{NumStreamsInbound: 1})
 
-	if err := rc.addStream(1, 0); err == nil {
+	if err := rc.addStream(network.DirInbound); err == nil {
 		t.Fatal("expected addStream to fail")
 	}
-	if err := rc.addStream(0, 1); err == nil {
-		t.Fatal("expected addStream to fail")
-	}
-	checkResources(t, rc, network.ScopeStat{NumStreamsInbound: 1, NumStreamsOutbound: 1})
+	checkResources(t, rc, network.ScopeStat{NumStreamsInbound: 1})
 
-	rc.removeStream(1, 1)
+	rc.removeStream(network.DirInbound)
 	checkResources(t, rc, network.ScopeStat{})
 
-	if err := rc.addConn(1, 1); err != nil {
+	if err := rc.addStream(network.DirOutbound); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, rc, network.ScopeStat{NumConnsInbound: 1, NumConnsOutbound: 1})
+	checkResources(t, rc, network.ScopeStat{NumStreamsOutbound: 1})
 
-	if err := rc.addConn(1, 0); err == nil {
+	if err := rc.addStream(network.DirOutbound); err == nil {
+		t.Fatal("expected addStream to fail")
+	}
+	checkResources(t, rc, network.ScopeStat{NumStreamsOutbound: 1})
+
+	rc.removeStream(network.DirOutbound)
+	checkResources(t, rc, network.ScopeStat{})
+
+	if err := rc.addConn(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, rc, network.ScopeStat{NumConnsInbound: 1})
+
+	if err := rc.addConn(network.DirInbound); err == nil {
 		t.Fatal("expected addConn to fail")
 	}
-	if err := rc.addConn(0, 1); err == nil {
+	checkResources(t, rc, network.ScopeStat{NumConnsInbound: 1})
+
+	rc.removeConn(network.DirInbound)
+	checkResources(t, rc, network.ScopeStat{})
+
+	if err := rc.addConn(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, rc, network.ScopeStat{NumConnsOutbound: 1})
+
+	if err := rc.addConn(network.DirOutbound); err == nil {
 		t.Fatal("expected addConn to fail")
 	}
-	checkResources(t, rc, network.ScopeStat{NumConnsInbound: 1, NumConnsOutbound: 1})
+	checkResources(t, rc, network.ScopeStat{NumConnsOutbound: 1})
 
-	rc.removeConn(1, 1)
+	rc.removeConn(network.DirOutbound)
 	checkResources(t, rc, network.ScopeStat{})
 
 	if err := rc.addFD(1); err != nil {
