@@ -30,7 +30,8 @@ type ResourceScope struct {
 	refCnt int
 
 	rc          *Resources
-	constraints []*ResourceScope
+	owner       *ResourceScope   // set in transaction scopes, which define trees
+	constraints []*ResourceScope // set in DAG scopes, it's the linearized parent set
 }
 
 var _ network.ResourceScope = (*ResourceScope)(nil)
@@ -57,6 +58,14 @@ func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope 
 	return &ResourceScope{
 		rc:          NewResources(limit),
 		constraints: constraints,
+	}
+}
+
+func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
+	owner.IncRef()
+	return &ResourceScope{
+		rc:    NewResources(owner.rc.limit),
+		owner: owner,
 	}
 }
 
@@ -280,6 +289,10 @@ func (s *ResourceScope) ReserveMemory(size int) error {
 }
 
 func (s *ResourceScope) reserveMemoryForConstraints(size int) error {
+	if s.owner != nil {
+		return s.owner.ReserveMemory(size)
+	}
+
 	var reserved int
 	var err error
 	for _, cst := range s.constraints {
@@ -300,6 +313,11 @@ func (s *ResourceScope) reserveMemoryForConstraints(size int) error {
 }
 
 func (s *ResourceScope) releaseMemoryForConstraints(size int) {
+	if s.owner != nil {
+		s.owner.ReleaseMemory(size)
+		return
+	}
+
 	for _, cst := range s.constraints {
 		cst.ReleaseMemoryForChild(int64(size))
 	}
@@ -399,8 +417,12 @@ func (b *Buffer) Release() {
 		return
 	}
 
-	for _, cst := range b.s.constraints {
-		cst.ReleaseMemoryForChild(int64(len(b.data)))
+	if b.s.owner != nil {
+		b.s.owner.ReleaseMemory(len(b.data))
+	} else {
+		for _, cst := range b.s.constraints {
+			cst.ReleaseMemoryForChild(int64(len(b.data)))
+		}
 	}
 	b.s.rc.releaseBuffer(b.key)
 	b.data = nil
@@ -416,6 +438,19 @@ func (s *ResourceScope) AddStream(dir network.Direction) error {
 
 	if err := s.rc.addStream(dir); err != nil {
 		return err
+	}
+
+	if err := s.addStreamForConstraints(dir); err != nil {
+		s.rc.removeStream(dir)
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResourceScope) addStreamForConstraints(dir network.Direction) error {
+	if s.owner != nil {
+		return s.owner.AddStream(dir)
 	}
 
 	var err error
@@ -456,6 +491,15 @@ func (s *ResourceScope) RemoveStream(dir network.Direction) {
 	}
 
 	s.rc.removeStream(dir)
+	s.removeStreamForConstraints(dir)
+}
+
+func (s *ResourceScope) removeStreamForConstraints(dir network.Direction) {
+	if s.owner != nil {
+		s.owner.RemoveStream(dir)
+		return
+	}
+
 	for _, cst := range s.constraints {
 		cst.RemoveStreamForChild(dir)
 	}
@@ -482,6 +526,19 @@ func (s *ResourceScope) AddConn(dir network.Direction) error {
 
 	if err := s.rc.addConn(dir); err != nil {
 		return err
+	}
+
+	if err := s.addConnForConstraints(dir); err != nil {
+		s.rc.removeConn(dir)
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResourceScope) addConnForConstraints(dir network.Direction) error {
+	if s.owner != nil {
+		return s.owner.AddConn(dir)
 	}
 
 	var err error
@@ -523,6 +580,14 @@ func (s *ResourceScope) RemoveConn(dir network.Direction) {
 	}
 
 	s.rc.removeConn(dir)
+	s.removeConnForConstraints(dir)
+}
+
+func (s *ResourceScope) removeConnForConstraints(dir network.Direction) {
+	if s.owner != nil {
+		s.owner.RemoveConn(dir)
+	}
+
 	for _, cst := range s.constraints {
 		cst.RemoveConnForChild(dir)
 	}
@@ -549,6 +614,19 @@ func (s *ResourceScope) AddFD(count int) error {
 
 	if err := s.rc.addFD(count); err != nil {
 		return err
+	}
+
+	if err := s.addFDForConstraints(count); err != nil {
+		s.rc.removeFD(count)
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResourceScope) addFDForConstraints(count int) error {
+	if s.owner != nil {
+		return s.owner.AddFD(count)
 	}
 
 	var err error
@@ -589,6 +667,15 @@ func (s *ResourceScope) RemoveFD(count int) {
 	}
 
 	s.rc.removeFD(count)
+	s.removeFDForConstraints(count)
+}
+
+func (s *ResourceScope) removeFDForConstraints(count int) {
+	if s.owner != nil {
+		s.owner.RemoveFD(count)
+		return
+	}
+
 	for _, cst := range s.constraints {
 		cst.RemoveFDForChild(count)
 	}
@@ -652,6 +739,28 @@ func (s *ResourceScope) ReleaseForChild(st network.ScopeStat) {
 	s.rc.removeFD(st.NumFD)
 }
 
+func (s *ResourceScope) ReleaseResources(st network.ScopeStat) {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.done {
+		return
+	}
+
+	s.rc.releaseMemory(st.Memory)
+	s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
+	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound)
+	s.rc.removeFD(st.NumFD)
+
+	if s.owner != nil {
+		s.owner.ReleaseResources(st)
+	} else {
+		for _, cst := range s.constraints {
+			cst.ReleaseForChild(st)
+		}
+	}
+}
+
 func (s *ResourceScope) BeginTxn() (network.TransactionalScope, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -660,11 +769,7 @@ func (s *ResourceScope) BeginTxn() (network.TransactionalScope, error) {
 		return nil, ErrResourceScopeClosed
 	}
 
-	constraints := make([]*ResourceScope, len(s.constraints)+1)
-	constraints[0] = s
-	copy(constraints[1:], s.constraints)
-
-	return NewResourceScope(s.rc.limit, constraints), nil
+	return NewTxnResourceScope(s), nil
 }
 
 func (s *ResourceScope) Done() {
@@ -676,9 +781,14 @@ func (s *ResourceScope) Done() {
 	}
 
 	stat := s.rc.stat()
-	for _, cst := range s.constraints {
-		cst.ReleaseForChild(stat)
-		cst.DecRef()
+	if s.owner != nil {
+		s.owner.ReleaseResources(stat)
+		s.owner.DecRef()
+	} else {
+		for _, cst := range s.constraints {
+			cst.ReleaseForChild(stat)
+			cst.DecRef()
+		}
 	}
 
 	s.rc.releaseBuffers()
