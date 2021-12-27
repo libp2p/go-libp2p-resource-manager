@@ -421,6 +421,7 @@ func (b *Buffer) Release() {
 	}
 
 	if b.s.done {
+		b.data = nil
 		return
 	}
 
