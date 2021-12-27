@@ -180,7 +180,7 @@ func TestResources(t *testing.T) {
 	checkResources(t, rc, network.ScopeStat{})
 }
 
-func TestResourceScopeBasic(t *testing.T) {
+func TestResourceScopeSimple(t *testing.T) {
 	s := NewResourceScope(
 		&StaticLimit{
 			Memory:          4096,
@@ -202,6 +202,11 @@ func TestResourceScopeBasic(t *testing.T) {
 		t.Fatal("expected refcnt of 0")
 	}
 
+	testResourceScopeBasic(t, s)
+	testResourceScopeBuffer(t, s)
+}
+
+func testResourceScopeBasic(t *testing.T, s *ResourceScope) {
 	if err := s.ReserveMemory(2048); err != nil {
 		t.Fatal(err)
 	}
@@ -286,19 +291,7 @@ func TestResourceScopeBasic(t *testing.T) {
 	checkResources(t, s.rc, network.ScopeStat{})
 }
 
-func TestResourceScopeBuffer(t *testing.T) {
-	s := NewResourceScope(
-		&StaticLimit{
-			Memory:          4096,
-			StreamsInbound:  1,
-			StreamsOutbound: 1,
-			ConnsInbound:    1,
-			ConnsOutbound:   1,
-			FD:              1,
-		},
-		nil,
-	)
-
+func testResourceScopeBuffer(t *testing.T, s *ResourceScope) {
 	buf, err := s.GetBuffer(2048)
 	if err != nil {
 		t.Fatal(err)
@@ -367,4 +360,77 @@ func TestResourceScopeBuffer(t *testing.T) {
 	if len(s.rc.buffers) != 0 {
 		t.Fatalf("expected %d buffers to be tracked but got %d", 0, len(s.rc.buffers))
 	}
+}
+
+func TestResourceScopeTxnBasic(t *testing.T) {
+	s := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			FD:              1,
+		},
+		nil,
+	)
+
+	txn, err := s.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testResourceScopeBasic(t, txn.(*ResourceScope))
+	checkResources(t, s.rc, network.ScopeStat{})
+	testResourceScopeBuffer(t, txn.(*ResourceScope))
+	checkResources(t, s.rc, network.ScopeStat{})
+
+	// check constraint propagation
+	if err := txn.ReserveMemory(4096); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, txn.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, s.rc, network.ScopeStat{Memory: 4096})
+	txn.Done()
+	checkResources(t, s.rc, network.ScopeStat{})
+	txn.Done() // idempotent
+	checkResources(t, s.rc, network.ScopeStat{})
+}
+
+func TestResourceScopeTxnZombie(t *testing.T) {
+	s := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			FD:              1,
+		},
+		nil,
+	)
+
+	// check zombie
+	txn1, err := s.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txn2, err := txn1.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := txn2.ReserveMemory(4096); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, s.rc, network.ScopeStat{Memory: 4096})
+
+	txn1.Done()
+	checkResources(t, s.rc, network.ScopeStat{})
+
+	txn2.Done()
+	checkResources(t, s.rc, network.ScopeStat{})
 }

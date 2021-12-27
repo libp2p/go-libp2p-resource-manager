@@ -69,7 +69,6 @@ func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope 
 }
 
 func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
-	owner.IncRef()
 	return &ResourceScope{
 		rc:    NewResources(owner.rc.limit),
 		owner: owner,
@@ -350,9 +349,7 @@ func (s *ResourceScope) ReleaseMemory(size int) {
 	}
 
 	s.rc.releaseMemory(int64(size))
-	for _, cst := range s.constraints {
-		cst.ReleaseMemoryForChild(int64(size))
-	}
+	s.releaseMemoryForConstraints(size)
 }
 
 func (s *ResourceScope) ReleaseMemoryForChild(size int64) {
@@ -777,6 +774,7 @@ func (s *ResourceScope) BeginTxn() (network.TransactionalScope, error) {
 		return nil, ErrResourceScopeClosed
 	}
 
+	s.refCnt++
 	return NewTxnResourceScope(s), nil
 }
 
