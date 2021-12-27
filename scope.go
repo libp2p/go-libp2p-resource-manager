@@ -21,9 +21,16 @@ type Resources struct {
 	nextBuf int
 }
 
-// DAG ResourceScopes.
-// Resources accounts for the node usage, constraints signify
-// the dependencies that constrain resource usage.
+// ResourceScopes.
+// A ResourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
+// (ie cannot call Done in the upstream node before the downstream node) and account for resources
+// using a linearized parent set.
+// A ResourceScope can be a txn scope, where it has a specific owner; txn scopes create a tree rooted
+// at the owner (which can be a DAG scope) and can outlive their parents -- this is important because
+// txn scopes are the main *user* interface for buffer/memory management, and the user may call
+// Done in a txn scope after the system has closed the root of the txn tree in some background
+// goroutine.
+// If we didn't make this distinction we would have a double release problem in that case.
 type ResourceScope struct {
 	sync.Mutex
 	done   bool
