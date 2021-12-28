@@ -80,7 +80,7 @@ type ConnectionScope struct {
 }
 
 var _ network.ConnectionScope = (*ConnectionScope)(nil)
-var _ network.UserConnectionScope = (*ConnectionScope)(nil)
+var _ network.ConnectionManagementScope = (*ConnectionScope)(nil)
 
 type StreamScope struct {
 	*ResourceScope
@@ -93,7 +93,7 @@ type StreamScope struct {
 }
 
 var _ network.StreamScope = (*StreamScope)(nil)
-var _ network.UserStreamScope = (*StreamScope)(nil)
+var _ network.StreamManagementScope = (*StreamScope)(nil)
 
 func NewResourceManager(limits Limiter) *ResourceManager {
 	r := &ResourceManager{
@@ -187,7 +187,7 @@ func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
 	return s
 }
 
-func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionScope, error) {
+func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionManagementScope, error) {
 	conn := NewConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
 	if err := conn.AddConn(dir); err != nil {
@@ -205,7 +205,7 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	return conn, nil
 }
 
-func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamScope, error) {
+func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamManagementScope, error) {
 	peer := r.getPeerScope(p)
 	stream := NewStreamScope(dir, r.limits.GetStreamLimits(p), peer)
 	peer.DecRef() // we have the reference in constraints
