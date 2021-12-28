@@ -1,6 +1,6 @@
 module github.com/libp2p/go-libp2p-rcmgr
 
-go 1.17
+go 1.16
 
 require (
 	github.com/libp2p/go-buffer-pool v0.0.2
