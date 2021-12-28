@@ -556,7 +556,6 @@ func (s *ResourceScope) addConnForConstraints(dir network.Direction) error {
 	}
 
 	if err != nil {
-		s.rc.removeConn(dir)
 		for _, cst := range s.constraints[:reserved] {
 			cst.RemoveConnForChild(dir)
 		}
