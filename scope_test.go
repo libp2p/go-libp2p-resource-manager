@@ -547,67 +547,537 @@ func TestResourceScopeDAG(t *testing.T) {
 	//           ------> s6
 	s1 := NewResourceScope(
 		&StaticLimit{
-			Memory:          8192,
-			StreamsInbound:  12,
-			StreamsOutbound: 12,
+			Memory:          4096,
+			StreamsInbound:  4,
+			StreamsOutbound: 4,
 			ConnsInbound:    4,
 			ConnsOutbound:   4,
-			FD:              2,
+			FD:              4,
 		},
 		nil,
 	)
 	s2 := NewResourceScope(
 		&StaticLimit{
-			Memory:          4096 + 2048,
-			StreamsInbound:  8,
-			StreamsOutbound: 8,
-			ConnsInbound:    3,
-			ConnsOutbound:   3,
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
 			FD:              2,
 		},
 		[]*ResourceScope{s1},
 	)
 	s3 := NewResourceScope(
 		&StaticLimit{
-			Memory:          4096 + 2048,
-			StreamsInbound:  8,
-			StreamsOutbound: 8,
-			ConnsInbound:    3,
-			ConnsOutbound:   3,
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
 			FD:              2,
 		},
 		[]*ResourceScope{s1},
 	)
 	s4 := NewResourceScope(
 		&StaticLimit{
-			Memory:          4096 + 1024,
-			StreamsInbound:  6,
-			StreamsOutbound: 6,
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
 			ConnsInbound:    2,
 			ConnsOutbound:   2,
-			FD:              1,
+			FD:              2,
 		},
 		[]*ResourceScope{s2, s3, s1},
 	)
 	s5 := NewResourceScope(
 		&StaticLimit{
-			Memory:          4096 + 1024,
-			StreamsInbound:  6,
-			StreamsOutbound: 6,
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
 			ConnsInbound:    2,
 			ConnsOutbound:   2,
-			FD:              1,
+			FD:              2,
 		},
 		[]*ResourceScope{s2, s1},
 	)
 	s6 := NewResourceScope(
 		&StaticLimit{
-			Memory:          4096 + 1024,
-			StreamsInbound:  6,
-			StreamsOutbound: 6,
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
 			ConnsInbound:    2,
 			ConnsOutbound:   2,
-			FD:              1,
+			FD:              2,
+		},
+		[]*ResourceScope{s3, s1},
+	)
+
+	if err := s4.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 1024})
+
+	if err := s5.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 2048})
+
+	if err := s6.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 3072})
+
+	if err := s4.ReserveMemory(1024); err == nil {
+		t.Fatal("expcted ReserveMemory to fail")
+	}
+	if err := s5.ReserveMemory(1024); err == nil {
+		t.Fatal("expcted ReserveMemory to fail")
+	}
+	if err := s6.ReserveMemory(1024); err == nil {
+		t.Fatal("expcted ReserveMemory to fail")
+	}
+
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 3072})
+
+	s4.ReleaseMemory(1024)
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 2048})
+
+	s5.ReleaseMemory(1024)
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 1024})
+
+	s6.ReleaseMemory(1024)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+
+	if err := s4.AddStream(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 1})
+
+	if err := s5.AddStream(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 2})
+
+	if err := s6.AddStream(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 3})
+
+	if err := s4.AddStream(network.DirInbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	if err := s5.AddStream(network.DirInbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	if err := s6.AddStream(network.DirInbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 3})
+
+	s4.RemoveStream(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 2})
+
+	s5.RemoveStream(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsInbound: 1})
+
+	s6.RemoveStream(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+
+	if err := s4.AddStream(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 1})
+
+	if err := s5.AddStream(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 2})
+
+	if err := s6.AddStream(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 3})
+
+	if err := s4.AddStream(network.DirOutbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	if err := s5.AddStream(network.DirOutbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	if err := s6.AddStream(network.DirOutbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 3})
+
+	s4.RemoveStream(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 2})
+
+	s5.RemoveStream(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumStreamsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{NumStreamsOutbound: 1})
+
+	s6.RemoveStream(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+
+	if err := s4.AddConn(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 1})
+
+	if err := s5.AddConn(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 2})
+
+	if err := s6.AddConn(network.DirInbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 3})
+
+	if err := s4.AddConn(network.DirInbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s5.AddConn(network.DirInbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s6.AddConn(network.DirInbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsInbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 3})
+
+	s4.RemoveConn(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 2})
+
+	s5.RemoveConn(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsInbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsInbound: 1})
+
+	s6.RemoveConn(network.DirInbound)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+
+	if err := s4.AddConn(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 1})
+
+	if err := s5.AddConn(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 2})
+
+	if err := s6.AddConn(network.DirOutbound); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 3})
+
+	if err := s4.AddConn(network.DirOutbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s5.AddConn(network.DirOutbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s6.AddConn(network.DirOutbound); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsOutbound: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 3})
+
+	s4.RemoveConn(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 2})
+
+	s5.RemoveConn(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumConnsOutbound: 1})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{NumConnsOutbound: 1})
+
+	s6.RemoveConn(network.DirOutbound)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+
+	if err := s4.AddFD(1); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 1})
+
+	if err := s5.AddFD(1); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumFD: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 2})
+
+	if err := s6.AddFD(1); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumFD: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 3})
+
+	if err := s4.AddFD(1); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s5.AddFD(1); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	if err := s6.AddFD(1); err == nil {
+		t.Fatal("expected AddConn to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s4.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 2})
+	checkResources(t, s2.rc, network.ScopeStat{NumFD: 2})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 3})
+
+	s4.RemoveFD(1)
+	checkResources(t, s6.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s5.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s2.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 2})
+
+	s5.RemoveFD(1)
+	checkResources(t, s6.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{NumFD: 1})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{NumFD: 1})
+
+	s6.RemoveFD(1)
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+}
+
+func TestResourceScopeDAGTxn(t *testing.T) {
+	// A small DAG of scopes
+	// s1
+	// +---> s2
+	//        +------------> s5
+	//        +----
+	// +---> s3 +.  \
+	//          | \  -----+-> s4 (a diamond!)
+	//          |  ------/
+	//          \
+	//           ------> s6
+	s1 := NewResourceScope(
+		&StaticLimit{
+			Memory: 8192,
+		},
+		nil,
+	)
+	s2 := NewResourceScope(
+		&StaticLimit{
+			Memory: 4096 + 2048,
+		},
+		[]*ResourceScope{s1},
+	)
+	s3 := NewResourceScope(
+		&StaticLimit{
+			Memory: 4096 + 2048,
+		},
+		[]*ResourceScope{s1},
+	)
+	s4 := NewResourceScope(
+		&StaticLimit{
+			Memory: 4096 + 1024,
+		},
+		[]*ResourceScope{s2, s3, s1},
+	)
+	s5 := NewResourceScope(
+		&StaticLimit{
+			Memory: 4096 + 1024,
+		},
+		[]*ResourceScope{s2, s1},
+	)
+	s6 := NewResourceScope(
+		&StaticLimit{
+			Memory: 4096 + 1024,
 		},
 		[]*ResourceScope{s3, s1},
 	)
