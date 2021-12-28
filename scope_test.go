@@ -533,3 +533,183 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	txn1.Done()
 	checkResources(t, s.rc, network.ScopeStat{})
 }
+
+func TestResourceScopeDAG(t *testing.T) {
+	// A small DAG of scopes
+	// s1
+	// +---> s2
+	//        +------------> s5
+	//        +----
+	// +---> s3 +.  \
+	//          | \  -----+-> s4 (a diamond!)
+	//          |  ------/
+	//          \
+	//           ------> s6
+	s1 := NewResourceScope(
+		&StaticLimit{
+			Memory:          8192,
+			StreamsInbound:  12,
+			StreamsOutbound: 12,
+			ConnsInbound:    4,
+			ConnsOutbound:   4,
+			FD:              2,
+		},
+		nil,
+	)
+	s2 := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096 + 2048,
+			StreamsInbound:  8,
+			StreamsOutbound: 8,
+			ConnsInbound:    3,
+			ConnsOutbound:   3,
+			FD:              2,
+		},
+		[]*ResourceScope{s1},
+	)
+	s3 := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096 + 2048,
+			StreamsInbound:  8,
+			StreamsOutbound: 8,
+			ConnsInbound:    3,
+			ConnsOutbound:   3,
+			FD:              2,
+		},
+		[]*ResourceScope{s1},
+	)
+	s4 := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096 + 1024,
+			StreamsInbound:  6,
+			StreamsOutbound: 6,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			FD:              1,
+		},
+		[]*ResourceScope{s2, s3, s1},
+	)
+	s5 := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096 + 1024,
+			StreamsInbound:  6,
+			StreamsOutbound: 6,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			FD:              1,
+		},
+		[]*ResourceScope{s2, s1},
+	)
+	s6 := NewResourceScope(
+		&StaticLimit{
+			Memory:          4096 + 1024,
+			StreamsInbound:  6,
+			StreamsOutbound: 6,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			FD:              1,
+		},
+		[]*ResourceScope{s3, s1},
+	)
+
+	txn4, err := s4.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txn5, err := s5.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txn6, err := s6.BeginTxn()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := txn4.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 1024})
+
+	if err := txn5.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 2048})
+
+	if err := txn6.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 3072})
+
+	if err := txn4.ReserveMemory(4096); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024 + 4096})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048 + 4096})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048 + 4096})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 3072 + 4096})
+
+	if err := txn4.ReserveMemory(1024); err == nil {
+		t.Fatal("expected ReserveMemory to fail")
+	}
+	if err := txn5.ReserveMemory(1024); err == nil {
+		t.Fatal("expected ReserveMemory to fail")
+	}
+	if err := txn6.ReserveMemory(1024); err == nil {
+		t.Fatal("expected ReserveMemory to fail")
+	}
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{Memory: 1024 + 4096})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048 + 4096})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048 + 4096})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 3072 + 4096})
+
+	txn4.Done()
+
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 2048})
+
+	if err := txn5.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+	if err := txn6.ReserveMemory(1024); err != nil {
+		t.Fatal(err)
+	}
+
+	checkResources(t, s6.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s5.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s2.rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, s1.rc, network.ScopeStat{Memory: 4096})
+
+	txn5.Done()
+	txn6.Done()
+
+	checkResources(t, s6.rc, network.ScopeStat{})
+	checkResources(t, s5.rc, network.ScopeStat{})
+	checkResources(t, s4.rc, network.ScopeStat{})
+	checkResources(t, s3.rc, network.ScopeStat{})
+	checkResources(t, s2.rc, network.ScopeStat{})
+	checkResources(t, s1.rc, network.ScopeStat{})
+}
