@@ -6,7 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 )
 
-func checkResources(t *testing.T, rc *Resources, st network.ScopeStat) {
+func checkResources(t *testing.T, rc *resources, st network.ScopeStat) {
 	t.Helper()
 
 	if rc.nconnsIn != st.NumConnsInbound {
@@ -30,7 +30,7 @@ func checkResources(t *testing.T, rc *Resources, st network.ScopeStat) {
 }
 
 func TestResources(t *testing.T) {
-	rc := NewResources(&StaticLimit{
+	rc := newResources(&StaticLimit{
 		Memory:          4096,
 		StreamsInbound:  1,
 		StreamsOutbound: 1,
