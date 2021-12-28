@@ -105,7 +105,7 @@ func NewResourceManager(limits Limiter) *ResourceManager {
 
 	r.system = NewSystemScope(limits.GetSystemLimits())
 	r.system.IncRef()
-	r.transient = NewTransientScope(limits.GetSystemLimits(), r.system)
+	r.transient = NewTransientScope(limits.GetTransientLimits(), r.system)
 	r.transient.IncRef()
 
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
@@ -227,6 +227,8 @@ func (r *ResourceManager) Close() error {
 }
 
 func (r *ResourceManager) background() {
+	defer r.wg.Done()
+
 	// periodically garbage collects unused peer and protocol scopes
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -247,12 +249,14 @@ func (r *ResourceManager) gc() {
 
 	for proto, s := range r.proto {
 		if s.IsUnused() {
+			s.Done()
 			delete(r.proto, proto)
 		}
 	}
 
 	for p, s := range r.peer {
 		if s.IsUnused() {
+			s.Done()
 			delete(r.peer, p)
 		}
 	}
@@ -380,8 +384,8 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	// juggle resources from transient scope to protocol scope
 	stat := s.ResourceScope.rc.stat()
 	if err := s.proto.ReserveForChild(stat); err != nil {
-		s.peer.DecRef()
-		s.peer = nil
+		s.proto.DecRef()
+		s.proto = nil
 		return err
 	}
 
