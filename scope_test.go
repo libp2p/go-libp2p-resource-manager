@@ -74,44 +74,7 @@ func TestResources(t *testing.T) {
 	}
 	checkResources(t, rc, network.ScopeStat{Memory: 3072})
 
-	buf, key, err := rc.getBuffer(1024)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(buf) != 1024 {
-		t.Fatalf("expected buffer of length %d, got %d", 1024, len(buf))
-	}
-	if len(rc.buffers) != 1 {
-		t.Fatal("expected buffer map to have one buffer")
-	}
-
-	checkResources(t, rc, network.ScopeStat{Memory: 4096})
-
 	rc.releaseMemory(3072)
-	checkResources(t, rc, network.ScopeStat{Memory: 1024})
-
-	buf[0] = 1
-	buf[1] = 2
-	buf[2] = 3
-	buf, err = rc.growBuffer(key, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(buf) != 2048 {
-		t.Fatalf("expected buffer of length %d, got %d", 2048, len(buf))
-	}
-	if buf[0] != 1 || buf[1] != 2 || buf[2] != 3 {
-		t.Fatal("buffer was not properly copied")
-	}
-	if len(rc.buffers) != 1 {
-		t.Fatal("expected buffer map to have one buffer")
-	}
-	checkResources(t, rc, network.ScopeStat{Memory: 2048})
-
-	rc.releaseBuffer(key)
-	if len(rc.buffers) != 0 {
-		t.Fatal("expected buffer map to be empty")
-	}
 	checkResources(t, rc, network.ScopeStat{})
 
 	if err := rc.addStream(network.DirInbound); err != nil {
@@ -203,7 +166,6 @@ func TestResourceScopeSimple(t *testing.T) {
 	}
 
 	testResourceScopeBasic(t, s)
-	testResourceScopeBuffer(t, s)
 }
 
 func testResourceScopeBasic(t *testing.T, s *ResourceScope) {
@@ -291,77 +253,6 @@ func testResourceScopeBasic(t *testing.T, s *ResourceScope) {
 	checkResources(t, s.rc, network.ScopeStat{})
 }
 
-func testResourceScopeBuffer(t *testing.T, s *ResourceScope) {
-	buf, err := s.GetBuffer(2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(buf.Data()) != 2048 {
-		t.Fatalf("expected buffer of length %d but got %d", 2048, len(buf.Data()))
-	}
-	if len(s.rc.buffers) != 1 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 1, len(s.rc.buffers))
-	}
-
-	if err = buf.Grow(4096); err != nil {
-		t.Fatal(err)
-	}
-	if len(buf.Data()) != 4096 {
-		t.Fatalf("expected buffer of length %d but got %d", 4096, len(buf.Data()))
-	}
-	if len(s.rc.buffers) != 1 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 1, len(s.rc.buffers))
-	}
-
-	if err = buf.Grow(8192); err == nil {
-		t.Fatal("expected grow to fail")
-	}
-	if len(buf.Data()) != 4096 {
-		t.Fatalf("expected buffer of length %d but got %d", 4096, len(buf.Data()))
-	}
-	if len(s.rc.buffers) != 1 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 1, len(s.rc.buffers))
-	}
-
-	buf.Release()
-	if len(buf.Data()) != 0 {
-		t.Fatalf("expected buffer of length %d but got %d", 0, len(buf.Data()))
-	}
-	if len(s.rc.buffers) != 0 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 0, len(s.rc.buffers))
-	}
-
-	buf1, err := s.GetBuffer(2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	buf2, err := s.GetBuffer(2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.GetBuffer(2048); err == nil {
-		t.Fatal("expected GetBuffer to fail")
-	}
-	if len(s.rc.buffers) != 2 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 2, len(s.rc.buffers))
-	}
-
-	buf1.Release()
-	buf3, err := s.GetBuffer(2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(s.rc.buffers) != 2 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 2, len(s.rc.buffers))
-	}
-
-	buf2.Release()
-	buf3.Release()
-	if len(s.rc.buffers) != 0 {
-		t.Fatalf("expected %d buffers to be tracked but got %d", 0, len(s.rc.buffers))
-	}
-}
-
 func TestResourceScopeTxnBasic(t *testing.T) {
 	s := NewResourceScope(
 		&StaticLimit{
@@ -375,14 +266,12 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 		nil,
 	)
 
-	txn, err := s.BeginTxn()
+	txn, err := s.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	testResourceScopeBasic(t, txn.(*ResourceScope))
-	checkResources(t, s.rc, network.ScopeStat{})
-	testResourceScopeBuffer(t, txn.(*ResourceScope))
 	checkResources(t, s.rc, network.ScopeStat{})
 
 	// check constraint propagation
@@ -410,12 +299,12 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 		nil,
 	)
 
-	txn1, err := s.BeginTxn()
+	txn1, err := s.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn2, err := txn1.BeginTxn()
+	txn2, err := txn1.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,27 +339,27 @@ func TestResourceScopeTxnTree(t *testing.T) {
 		nil,
 	)
 
-	txn1, err := s.BeginTxn()
+	txn1, err := s.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn2, err := txn1.BeginTxn()
+	txn2, err := txn1.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn3, err := txn1.BeginTxn()
+	txn3, err := txn1.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn4, err := txn2.BeginTxn()
+	txn4, err := txn2.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn5, err := txn2.BeginTxn()
+	txn5, err := txn2.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1082,17 +971,17 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 		[]*ResourceScope{s3, s1},
 	)
 
-	txn4, err := s4.BeginTxn()
+	txn4, err := s4.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn5, err := s5.BeginTxn()
+	txn5, err := s5.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn6, err := s6.BeginTxn()
+	txn6, err := s6.BeginTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
