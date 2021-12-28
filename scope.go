@@ -77,7 +77,7 @@ func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
 
 // Resources implementation
 func (rc *Resources) checkMemory(rsvp int64) error {
-	// overflow check; this also has the side-effect that we cannot reserve negative memory.
+	// overflow check; this also has the side effect that we cannot reserve negative memory.
 	newmem := rc.memory + int64(rsvp)
 	if newmem < rc.memory {
 		return fmt.Errorf("memory reservation overflow: %w", ErrResourceLimitExceeded)
