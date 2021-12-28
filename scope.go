@@ -9,7 +9,7 @@ import (
 )
 
 // Basic resource mamagement.
-type Resources struct {
+type resources struct {
 	limit Limit
 
 	nconnsIn, nconnsOut     int
@@ -36,7 +36,7 @@ type ResourceScope struct {
 	done   bool
 	refCnt int
 
-	rc          *Resources
+	rc          *resources
 	owner       *ResourceScope   // set in transaction scopes, which define trees
 	constraints []*ResourceScope // set in DAG scopes, it's the linearized parent set
 }
@@ -52,8 +52,8 @@ type Buffer struct {
 
 var _ network.Buffer = (*Buffer)(nil)
 
-func NewResources(limit Limit) *Resources {
-	return &Resources{
+func newResources(limit Limit) *resources {
+	return &resources{
 		limit: limit,
 	}
 }
@@ -63,20 +63,20 @@ func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope 
 		cst.IncRef()
 	}
 	return &ResourceScope{
-		rc:          NewResources(limit),
+		rc:          newResources(limit),
 		constraints: constraints,
 	}
 }
 
 func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
 	return &ResourceScope{
-		rc:    NewResources(owner.rc.limit),
+		rc:    newResources(owner.rc.limit),
 		owner: owner,
 	}
 }
 
 // Resources implementation
-func (rc *Resources) checkMemory(rsvp int64) error {
+func (rc *resources) checkMemory(rsvp int64) error {
 	// overflow check; this also has the side effect that we cannot reserve negative memory.
 	newmem := rc.memory + rsvp
 	if newmem < rc.memory {
@@ -91,14 +91,14 @@ func (rc *Resources) checkMemory(rsvp int64) error {
 	return nil
 }
 
-func (rc *Resources) releaseBuffers() {
+func (rc *resources) releaseBuffers() {
 	for _, buf := range rc.buffers {
 		pool.Put(buf)
 	}
 	rc.buffers = nil
 }
 
-func (rc *Resources) reserveMemory(size int64) error {
+func (rc *resources) reserveMemory(size int64) error {
 	if err := rc.checkMemory(size); err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (rc *Resources) reserveMemory(size int64) error {
 	return nil
 }
 
-func (rc *Resources) releaseMemory(size int64) {
+func (rc *resources) releaseMemory(size int64) {
 	rc.memory -= size
 
 	// sanity check for bugs upstream
@@ -116,7 +116,7 @@ func (rc *Resources) releaseMemory(size int64) {
 	}
 }
 
-func (rc *Resources) getBuffer(size int) ([]byte, int, error) {
+func (rc *resources) getBuffer(size int) ([]byte, int, error) {
 	if err := rc.checkMemory(int64(size)); err != nil {
 		return nil, -1, err
 	}
@@ -134,7 +134,7 @@ func (rc *Resources) getBuffer(size int) ([]byte, int, error) {
 	return buf, key, nil
 }
 
-func (rc *Resources) growBuffer(key int, newsize int) ([]byte, error) {
+func (rc *resources) growBuffer(key int, newsize int) ([]byte, error) {
 	oldbuf, ok := rc.buffers[key]
 	if !ok {
 		return nil, fmt.Errorf("invalid buffer; cannot grow buffer not allocated through this scope")
@@ -154,7 +154,7 @@ func (rc *Resources) growBuffer(key int, newsize int) ([]byte, error) {
 	return newbuf, nil
 }
 
-func (rc *Resources) releaseBuffer(key int) {
+func (rc *resources) releaseBuffer(key int) {
 	buf, ok := rc.buffers[key]
 	if !ok {
 		panic("BUG: release unknown buffer")
@@ -171,14 +171,14 @@ func (rc *Resources) releaseBuffer(key int) {
 	pool.Put(buf)
 }
 
-func (rc *Resources) addStream(dir network.Direction) error {
+func (rc *resources) addStream(dir network.Direction) error {
 	if dir == network.DirInbound {
 		return rc.addStreams(1, 0)
 	}
 	return rc.addStreams(0, 1)
 }
 
-func (rc *Resources) addStreams(incount, outcount int) error {
+func (rc *resources) addStreams(incount, outcount int) error {
 	if incount > 0 && rc.nstreamsIn+incount > rc.limit.GetStreamLimit(network.DirInbound) {
 		return fmt.Errorf("cannot reserve stream: %w", ErrResourceLimitExceeded)
 	}
@@ -191,7 +191,7 @@ func (rc *Resources) addStreams(incount, outcount int) error {
 	return nil
 }
 
-func (rc *Resources) removeStream(dir network.Direction) {
+func (rc *resources) removeStream(dir network.Direction) {
 	if dir == network.DirInbound {
 		rc.removeStreams(1, 0)
 	} else {
@@ -199,7 +199,7 @@ func (rc *Resources) removeStream(dir network.Direction) {
 	}
 }
 
-func (rc *Resources) removeStreams(incount, outcount int) {
+func (rc *resources) removeStreams(incount, outcount int) {
 	rc.nstreamsIn -= incount
 	rc.nstreamsOut -= outcount
 
@@ -208,14 +208,14 @@ func (rc *Resources) removeStreams(incount, outcount int) {
 	}
 }
 
-func (rc *Resources) addConn(dir network.Direction) error {
+func (rc *resources) addConn(dir network.Direction) error {
 	if dir == network.DirInbound {
 		return rc.addConns(1, 0)
 	}
 	return rc.addConns(0, 1)
 }
 
-func (rc *Resources) addConns(incount, outcount int) error {
+func (rc *resources) addConns(incount, outcount int) error {
 	if incount > 0 && rc.nconnsIn+incount > rc.limit.GetConnLimit(network.DirInbound) {
 		return fmt.Errorf("cannot reserve connection: %w", ErrResourceLimitExceeded)
 	}
@@ -228,7 +228,7 @@ func (rc *Resources) addConns(incount, outcount int) error {
 	return nil
 }
 
-func (rc *Resources) removeConn(dir network.Direction) {
+func (rc *resources) removeConn(dir network.Direction) {
 	if dir == network.DirInbound {
 		rc.removeConns(1, 0)
 	} else {
@@ -236,7 +236,7 @@ func (rc *Resources) removeConn(dir network.Direction) {
 	}
 }
 
-func (rc *Resources) removeConns(incount, outcount int) {
+func (rc *resources) removeConns(incount, outcount int) {
 	rc.nconnsIn -= incount
 	rc.nconnsOut -= outcount
 
@@ -245,7 +245,7 @@ func (rc *Resources) removeConns(incount, outcount int) {
 	}
 }
 
-func (rc *Resources) addFD(count int) error {
+func (rc *resources) addFD(count int) error {
 	if rc.nfd+count > rc.limit.GetFDLimit() {
 		return fmt.Errorf("cannot reserve file descriptor: %w", ErrResourceLimitExceeded)
 	}
@@ -254,7 +254,7 @@ func (rc *Resources) addFD(count int) error {
 	return nil
 }
 
-func (rc *Resources) removeFD(count int) {
+func (rc *resources) removeFD(count int) {
 	rc.nfd -= count
 
 	if rc.nfd < 0 {
@@ -262,7 +262,7 @@ func (rc *Resources) removeFD(count int) {
 	}
 }
 
-func (rc *Resources) stat() network.ScopeStat {
+func (rc *resources) stat() network.ScopeStat {
 	return network.ScopeStat{
 		Memory:             rc.memory,
 		NumStreamsInbound:  rc.nstreamsIn,
