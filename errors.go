@@ -1,10 +1,10 @@
 package rcmgr
 
 import (
-	"errors"
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 var (
-	ErrResourceLimitExceeded = errors.New("resource limit exceeded")
-	ErrResourceScopeClosed   = errors.New("resource scope closed")
+	ErrResourceLimitExceeded = network.ErrResourceLimitExceeded
+	ErrResourceScopeClosed   = network.ErrResourceScopeClosed
 )
