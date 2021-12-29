@@ -7,7 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 )
 
-// Basic resource mamagement.
+// resources tracks the current state of resource consumption
 type resources struct {
 	limit Limit
 
