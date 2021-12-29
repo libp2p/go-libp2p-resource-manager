@@ -128,55 +128,57 @@ func (rc *resources) removeStreams(incount, outcount int) {
 	}
 }
 
-func (rc *resources) addConn(dir network.Direction) error {
-	if dir == network.DirInbound {
-		return rc.addConns(1, 0)
+func (rc *resources) addConn(dir network.Direction, usefd bool) error {
+	var fd int
+	if usefd {
+		fd = 1
 	}
-	return rc.addConns(0, 1)
+
+	if dir == network.DirInbound {
+		return rc.addConns(1, 0, fd)
+	}
+
+	return rc.addConns(0, 1, fd)
 }
 
-func (rc *resources) addConns(incount, outcount int) error {
+func (rc *resources) addConns(incount, outcount, fdcount int) error {
 	if incount > 0 && rc.nconnsIn+incount > rc.limit.GetConnLimit(network.DirInbound) {
 		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
 	if outcount > 0 && rc.nconnsOut+outcount > rc.limit.GetConnLimit(network.DirOutbound) {
 		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
+	if fdcount > 0 && rc.nfd+fdcount > rc.limit.GetFDLimit() {
+		return fmt.Errorf("cannot reserve file descriptor: %w", network.ErrResourceLimitExceeded)
+	}
 
 	rc.nconnsIn += incount
 	rc.nconnsOut += outcount
+	rc.nfd += fdcount
 	return nil
 }
 
-func (rc *resources) removeConn(dir network.Direction) {
+func (rc *resources) removeConn(dir network.Direction, usefd bool) {
+	var fd int
+	if usefd {
+		fd = 1
+	}
+
 	if dir == network.DirInbound {
-		rc.removeConns(1, 0)
+		rc.removeConns(1, 0, fd)
 	} else {
-		rc.removeConns(0, 1)
+		rc.removeConns(0, 1, fd)
 	}
 }
 
-func (rc *resources) removeConns(incount, outcount int) {
+func (rc *resources) removeConns(incount, outcount, fdcount int) {
 	rc.nconnsIn -= incount
 	rc.nconnsOut -= outcount
+	rc.nfd -= fdcount
 
 	if rc.nconnsIn < 0 || rc.nconnsOut < 0 {
 		panic("BUG: too many connections released")
 	}
-}
-
-func (rc *resources) addFD(count int) error {
-	if rc.nfd+count > rc.limit.GetFDLimit() {
-		return fmt.Errorf("cannot reserve file descriptor: %w", network.ErrResourceLimitExceeded)
-	}
-
-	rc.nfd += count
-	return nil
-}
-
-func (rc *resources) removeFD(count int) {
-	rc.nfd -= count
-
 	if rc.nfd < 0 {
 		panic("BUG: too many file descriptors released")
 	}
@@ -371,7 +373,7 @@ func (s *ResourceScope) RemoveStreamForChild(dir network.Direction) {
 	s.rc.removeStream(dir)
 }
 
-func (s *ResourceScope) AddConn(dir network.Direction) error {
+func (s *ResourceScope) AddConn(dir network.Direction, usefd bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -379,27 +381,27 @@ func (s *ResourceScope) AddConn(dir network.Direction) error {
 		return network.ErrResourceScopeClosed
 	}
 
-	if err := s.rc.addConn(dir); err != nil {
+	if err := s.rc.addConn(dir, usefd); err != nil {
 		return err
 	}
 
-	if err := s.addConnForConstraints(dir); err != nil {
-		s.rc.removeConn(dir)
+	if err := s.addConnForConstraints(dir, usefd); err != nil {
+		s.rc.removeConn(dir, usefd)
 		return err
 	}
 
 	return nil
 }
 
-func (s *ResourceScope) addConnForConstraints(dir network.Direction) error {
+func (s *ResourceScope) addConnForConstraints(dir network.Direction, usefd bool) error {
 	if s.owner != nil {
-		return s.owner.AddConn(dir)
+		return s.owner.AddConn(dir, usefd)
 	}
 
 	var err error
 	var reserved int
 	for _, cst := range s.constraints {
-		if err = cst.AddConnForChild(dir); err != nil {
+		if err = cst.AddConnForChild(dir, usefd); err != nil {
 			break
 		}
 		reserved++
@@ -407,14 +409,14 @@ func (s *ResourceScope) addConnForConstraints(dir network.Direction) error {
 
 	if err != nil {
 		for _, cst := range s.constraints[:reserved] {
-			cst.RemoveConnForChild(dir)
+			cst.RemoveConnForChild(dir, usefd)
 		}
 	}
 
 	return err
 }
 
-func (s *ResourceScope) AddConnForChild(dir network.Direction) error {
+func (s *ResourceScope) AddConnForChild(dir network.Direction, usefd bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -422,10 +424,10 @@ func (s *ResourceScope) AddConnForChild(dir network.Direction) error {
 		return network.ErrResourceScopeClosed
 	}
 
-	return s.rc.addConn(dir)
+	return s.rc.addConn(dir, usefd)
 }
 
-func (s *ResourceScope) RemoveConn(dir network.Direction) {
+func (s *ResourceScope) RemoveConn(dir network.Direction, usefd bool) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -433,21 +435,21 @@ func (s *ResourceScope) RemoveConn(dir network.Direction) {
 		return
 	}
 
-	s.rc.removeConn(dir)
-	s.removeConnForConstraints(dir)
+	s.rc.removeConn(dir, usefd)
+	s.removeConnForConstraints(dir, usefd)
 }
 
-func (s *ResourceScope) removeConnForConstraints(dir network.Direction) {
+func (s *ResourceScope) removeConnForConstraints(dir network.Direction, usefd bool) {
 	if s.owner != nil {
-		s.owner.RemoveConn(dir)
+		s.owner.RemoveConn(dir, usefd)
 	}
 
 	for _, cst := range s.constraints {
-		cst.RemoveConnForChild(dir)
+		cst.RemoveConnForChild(dir, usefd)
 	}
 }
 
-func (s *ResourceScope) RemoveConnForChild(dir network.Direction) {
+func (s *ResourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -455,95 +457,7 @@ func (s *ResourceScope) RemoveConnForChild(dir network.Direction) {
 		return
 	}
 
-	s.rc.removeConn(dir)
-}
-
-func (s *ResourceScope) AddFD(count int) error {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.done {
-		return network.ErrResourceScopeClosed
-	}
-
-	if err := s.rc.addFD(count); err != nil {
-		return err
-	}
-
-	if err := s.addFDForConstraints(count); err != nil {
-		s.rc.removeFD(count)
-		return err
-	}
-
-	return nil
-}
-
-func (s *ResourceScope) addFDForConstraints(count int) error {
-	if s.owner != nil {
-		return s.owner.AddFD(count)
-	}
-
-	var err error
-	var reserved int
-	for _, cst := range s.constraints {
-		if err = cst.AddFDForChild(count); err != nil {
-			break
-		}
-		reserved++
-	}
-
-	if err != nil {
-		for _, cst := range s.constraints[:reserved] {
-			cst.RemoveFDForChild(count)
-		}
-	}
-
-	return err
-}
-
-func (s *ResourceScope) AddFDForChild(count int) error {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.done {
-		return network.ErrResourceScopeClosed
-	}
-
-	return s.rc.addFD(count)
-}
-
-func (s *ResourceScope) RemoveFD(count int) {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.done {
-		return
-	}
-
-	s.rc.removeFD(count)
-	s.removeFDForConstraints(count)
-}
-
-func (s *ResourceScope) removeFDForConstraints(count int) {
-	if s.owner != nil {
-		s.owner.RemoveFD(count)
-		return
-	}
-
-	for _, cst := range s.constraints {
-		cst.RemoveFDForChild(count)
-	}
-}
-
-func (s *ResourceScope) RemoveFDForChild(count int) {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.done {
-		return
-	}
-
-	s.rc.removeFD(count)
+	s.rc.removeConn(dir, usefd)
 }
 
 func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
@@ -563,16 +477,9 @@ func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
 		return err
 	}
 
-	if err := s.rc.addConns(st.NumConnsInbound, st.NumConnsOutbound); err != nil {
+	if err := s.rc.addConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD); err != nil {
 		s.rc.releaseMemory(st.Memory)
 		s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-		return err
-	}
-
-	if err := s.rc.addFD(st.NumFD); err != nil {
-		s.rc.releaseMemory(st.Memory)
-		s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-		s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound)
 		return err
 	}
 
@@ -589,8 +496,7 @@ func (s *ResourceScope) ReleaseForChild(st network.ScopeStat) {
 
 	s.rc.releaseMemory(st.Memory)
 	s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound)
-	s.rc.removeFD(st.NumFD)
+	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD)
 }
 
 func (s *ResourceScope) ReleaseResources(st network.ScopeStat) {
@@ -603,8 +509,7 @@ func (s *ResourceScope) ReleaseResources(st network.ScopeStat) {
 
 	s.rc.releaseMemory(st.Memory)
 	s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound)
-	s.rc.removeFD(st.NumFD)
+	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD)
 
 	if s.owner != nil {
 		s.owner.ReleaseResources(st)
