@@ -190,16 +190,9 @@ func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
 func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionManagementScope, error) {
 	conn := NewConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
-	if err := conn.AddConn(dir); err != nil {
+	if err := conn.AddConn(dir, usefd); err != nil {
 		conn.Done()
 		return nil, err
-	}
-
-	if usefd {
-		if err := conn.AddFD(1); err != nil {
-			conn.Done()
-			return nil, err
-		}
 	}
 
 	return conn, nil
