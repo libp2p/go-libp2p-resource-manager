@@ -68,12 +68,12 @@ func (rc *resources) checkMemory(rsvp int64) error {
 	// overflow check; this also has the side effect that we cannot reserve negative memory.
 	newmem := rc.memory + rsvp
 	if newmem < rc.memory {
-		return fmt.Errorf("memory reservation overflow: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("memory reservation overflow: %w", network.ErrResourceLimitExceeded)
 	}
 
 	// limit check
 	if newmem > rc.limit.GetMemoryLimit() {
-		return fmt.Errorf("cannot reserve memory: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve memory: %w", network.ErrResourceLimitExceeded)
 	}
 
 	return nil
@@ -106,10 +106,10 @@ func (rc *resources) addStream(dir network.Direction) error {
 
 func (rc *resources) addStreams(incount, outcount int) error {
 	if incount > 0 && rc.nstreamsIn+incount > rc.limit.GetStreamLimit(network.DirInbound) {
-		return fmt.Errorf("cannot reserve stream: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
 	}
 	if outcount > 0 && rc.nstreamsOut+outcount > rc.limit.GetStreamLimit(network.DirOutbound) {
-		return fmt.Errorf("cannot reserve stream: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
 	}
 
 	rc.nstreamsIn += incount
@@ -143,10 +143,10 @@ func (rc *resources) addConn(dir network.Direction) error {
 
 func (rc *resources) addConns(incount, outcount int) error {
 	if incount > 0 && rc.nconnsIn+incount > rc.limit.GetConnLimit(network.DirInbound) {
-		return fmt.Errorf("cannot reserve connection: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
 	if outcount > 0 && rc.nconnsOut+outcount > rc.limit.GetConnLimit(network.DirOutbound) {
-		return fmt.Errorf("cannot reserve connection: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
 
 	rc.nconnsIn += incount
@@ -173,7 +173,7 @@ func (rc *resources) removeConns(incount, outcount int) {
 
 func (rc *resources) addFD(count int) error {
 	if rc.nfd+count > rc.limit.GetFDLimit() {
-		return fmt.Errorf("cannot reserve file descriptor: %w", ErrResourceLimitExceeded)
+		return fmt.Errorf("cannot reserve file descriptor: %w", network.ErrResourceLimitExceeded)
 	}
 
 	rc.nfd += count
@@ -205,7 +205,7 @@ func (s *ResourceScope) ReserveMemory(size int) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	if err := s.rc.reserveMemory(int64(size)); err != nil {
@@ -260,7 +260,7 @@ func (s *ResourceScope) ReserveMemoryForChild(size int64) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	return s.rc.reserveMemory(size)
@@ -294,7 +294,7 @@ func (s *ResourceScope) AddStream(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	if err := s.rc.addStream(dir); err != nil {
@@ -337,7 +337,7 @@ func (s *ResourceScope) AddStreamForChild(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	return s.rc.addStream(dir)
@@ -382,7 +382,7 @@ func (s *ResourceScope) AddConn(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	if err := s.rc.addConn(dir); err != nil {
@@ -425,7 +425,7 @@ func (s *ResourceScope) AddConnForChild(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	return s.rc.addConn(dir)
@@ -469,7 +469,7 @@ func (s *ResourceScope) AddFD(count int) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	if err := s.rc.addFD(count); err != nil {
@@ -512,7 +512,7 @@ func (s *ResourceScope) AddFDForChild(count int) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	return s.rc.addFD(count)
@@ -557,7 +557,7 @@ func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
 	defer s.Unlock()
 
 	if s.done {
-		return ErrResourceScopeClosed
+		return network.ErrResourceScopeClosed
 	}
 
 	if err := s.rc.reserveMemory(st.Memory); err != nil {
@@ -626,7 +626,7 @@ func (s *ResourceScope) BeginTransaction() (network.TransactionalScope, error) {
 	defer s.Unlock()
 
 	if s.done {
-		return nil, ErrResourceScopeClosed
+		return nil, network.ErrResourceScopeClosed
 	}
 
 	s.refCnt++
