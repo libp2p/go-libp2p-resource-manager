@@ -18,7 +18,6 @@ type resources struct {
 	memory int64
 }
 
-// ResourceScopes.
 // A ResourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
 // (ie cannot call Done in the upstream node before the downstream node) and account for resources
 // using a linearized parent set.
