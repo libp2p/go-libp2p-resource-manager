@@ -32,7 +32,7 @@ type ResourceScope struct {
 	done   bool
 	refCnt int
 
-	rc          *resources
+	rc          resources
 	owner       *ResourceScope   // set in transaction scopes, which define trees
 	constraints []*ResourceScope // set in DAG scopes, it's the linearized parent set
 }
@@ -40,25 +40,19 @@ type ResourceScope struct {
 var _ network.ResourceScope = (*ResourceScope)(nil)
 var _ network.TransactionalScope = (*ResourceScope)(nil)
 
-func newResources(limit Limit) *resources {
-	return &resources{
-		limit: limit,
-	}
-}
-
 func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope {
 	for _, cst := range constraints {
 		cst.IncRef()
 	}
 	return &ResourceScope{
-		rc:          newResources(limit),
+		rc:          resources{limit: limit},
 		constraints: constraints,
 	}
 }
 
 func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
 	return &ResourceScope{
-		rc:    newResources(owner.rc.limit),
+		rc:    resources{limit: owner.rc.limit},
 		owner: owner,
 	}
 }
