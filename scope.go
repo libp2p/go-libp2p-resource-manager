@@ -18,40 +18,40 @@ type resources struct {
 	memory int64
 }
 
-// A ResourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
+// A resourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
 // (ie cannot call Done in the upstream node before the downstream node) and account for resources
 // using a linearized parent set.
-// A ResourceScope can be a txn scope, where it has a specific owner; txn scopes create a tree rooted
+// A resourceScope can be a txn scope, where it has a specific owner; txn scopes create a tree rooted
 // at the owner (which can be a DAG scope) and can outlive their parents -- this is important because
 // txn scopes are the main *user* interface for memory management, and the user may call
 // Done in a txn scope after the system has closed the root of the txn tree in some background
 // goroutine.
 // If we didn't make this distinction we would have a double release problem in that case.
-type ResourceScope struct {
+type resourceScope struct {
 	sync.Mutex
 	done   bool
 	refCnt int
 
 	rc          resources
-	owner       *ResourceScope   // set in transaction scopes, which define trees
-	constraints []*ResourceScope // set in DAG scopes, it's the linearized parent set
+	owner       *resourceScope   // set in transaction scopes, which define trees
+	constraints []*resourceScope // set in DAG scopes, it's the linearized parent set
 }
 
-var _ network.ResourceScope = (*ResourceScope)(nil)
-var _ network.TransactionalScope = (*ResourceScope)(nil)
+var _ network.ResourceScope = (*resourceScope)(nil)
+var _ network.TransactionalScope = (*resourceScope)(nil)
 
-func NewResourceScope(limit Limit, constraints []*ResourceScope) *ResourceScope {
+func newResourceScope(limit Limit, constraints []*resourceScope) *resourceScope {
 	for _, cst := range constraints {
 		cst.IncRef()
 	}
-	return &ResourceScope{
+	return &resourceScope{
 		rc:          resources{limit: limit},
 		constraints: constraints,
 	}
 }
 
-func NewTxnResourceScope(owner *ResourceScope) *ResourceScope {
-	return &ResourceScope{
+func newTxnResourceScope(owner *resourceScope) *resourceScope {
+	return &resourceScope{
 		rc:    resources{limit: owner.rc.limit},
 		owner: owner,
 	}
@@ -195,8 +195,8 @@ func (rc *resources) stat() network.ScopeStat {
 	}
 }
 
-// ResourceScope implementation
-func (s *ResourceScope) ReserveMemory(size int) error {
+// resourceScope implementation
+func (s *resourceScope) ReserveMemory(size int) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -216,7 +216,7 @@ func (s *ResourceScope) ReserveMemory(size int) error {
 	return nil
 }
 
-func (s *ResourceScope) reserveMemoryForConstraints(size int) error {
+func (s *resourceScope) reserveMemoryForConstraints(size int) error {
 	if s.owner != nil {
 		return s.owner.ReserveMemory(size)
 	}
@@ -240,7 +240,7 @@ func (s *ResourceScope) reserveMemoryForConstraints(size int) error {
 	return err
 }
 
-func (s *ResourceScope) releaseMemoryForConstraints(size int) {
+func (s *resourceScope) releaseMemoryForConstraints(size int) {
 	if s.owner != nil {
 		s.owner.ReleaseMemory(size)
 		return
@@ -251,7 +251,7 @@ func (s *ResourceScope) releaseMemoryForConstraints(size int) {
 	}
 }
 
-func (s *ResourceScope) ReserveMemoryForChild(size int64) error {
+func (s *resourceScope) ReserveMemoryForChild(size int64) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -262,7 +262,7 @@ func (s *ResourceScope) ReserveMemoryForChild(size int64) error {
 	return s.rc.reserveMemory(size)
 }
 
-func (s *ResourceScope) ReleaseMemory(size int) {
+func (s *resourceScope) ReleaseMemory(size int) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -274,7 +274,7 @@ func (s *ResourceScope) ReleaseMemory(size int) {
 	s.releaseMemoryForConstraints(size)
 }
 
-func (s *ResourceScope) ReleaseMemoryForChild(size int64) {
+func (s *resourceScope) ReleaseMemoryForChild(size int64) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -285,7 +285,7 @@ func (s *ResourceScope) ReleaseMemoryForChild(size int64) {
 	s.rc.releaseMemory(size)
 }
 
-func (s *ResourceScope) AddStream(dir network.Direction) error {
+func (s *resourceScope) AddStream(dir network.Direction) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -305,7 +305,7 @@ func (s *ResourceScope) AddStream(dir network.Direction) error {
 	return nil
 }
 
-func (s *ResourceScope) addStreamForConstraints(dir network.Direction) error {
+func (s *resourceScope) addStreamForConstraints(dir network.Direction) error {
 	if s.owner != nil {
 		return s.owner.AddStream(dir)
 	}
@@ -328,7 +328,7 @@ func (s *ResourceScope) addStreamForConstraints(dir network.Direction) error {
 	return err
 }
 
-func (s *ResourceScope) AddStreamForChild(dir network.Direction) error {
+func (s *resourceScope) AddStreamForChild(dir network.Direction) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -339,7 +339,7 @@ func (s *ResourceScope) AddStreamForChild(dir network.Direction) error {
 	return s.rc.addStream(dir)
 }
 
-func (s *ResourceScope) RemoveStream(dir network.Direction) {
+func (s *resourceScope) RemoveStream(dir network.Direction) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -351,7 +351,7 @@ func (s *ResourceScope) RemoveStream(dir network.Direction) {
 	s.removeStreamForConstraints(dir)
 }
 
-func (s *ResourceScope) removeStreamForConstraints(dir network.Direction) {
+func (s *resourceScope) removeStreamForConstraints(dir network.Direction) {
 	if s.owner != nil {
 		s.owner.RemoveStream(dir)
 		return
@@ -362,7 +362,7 @@ func (s *ResourceScope) removeStreamForConstraints(dir network.Direction) {
 	}
 }
 
-func (s *ResourceScope) RemoveStreamForChild(dir network.Direction) {
+func (s *resourceScope) RemoveStreamForChild(dir network.Direction) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -373,7 +373,7 @@ func (s *ResourceScope) RemoveStreamForChild(dir network.Direction) {
 	s.rc.removeStream(dir)
 }
 
-func (s *ResourceScope) AddConn(dir network.Direction, usefd bool) error {
+func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -393,7 +393,7 @@ func (s *ResourceScope) AddConn(dir network.Direction, usefd bool) error {
 	return nil
 }
 
-func (s *ResourceScope) addConnForConstraints(dir network.Direction, usefd bool) error {
+func (s *resourceScope) addConnForConstraints(dir network.Direction, usefd bool) error {
 	if s.owner != nil {
 		return s.owner.AddConn(dir, usefd)
 	}
@@ -416,7 +416,7 @@ func (s *ResourceScope) addConnForConstraints(dir network.Direction, usefd bool)
 	return err
 }
 
-func (s *ResourceScope) AddConnForChild(dir network.Direction, usefd bool) error {
+func (s *resourceScope) AddConnForChild(dir network.Direction, usefd bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -427,7 +427,7 @@ func (s *ResourceScope) AddConnForChild(dir network.Direction, usefd bool) error
 	return s.rc.addConn(dir, usefd)
 }
 
-func (s *ResourceScope) RemoveConn(dir network.Direction, usefd bool) {
+func (s *resourceScope) RemoveConn(dir network.Direction, usefd bool) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -439,7 +439,7 @@ func (s *ResourceScope) RemoveConn(dir network.Direction, usefd bool) {
 	s.removeConnForConstraints(dir, usefd)
 }
 
-func (s *ResourceScope) removeConnForConstraints(dir network.Direction, usefd bool) {
+func (s *resourceScope) removeConnForConstraints(dir network.Direction, usefd bool) {
 	if s.owner != nil {
 		s.owner.RemoveConn(dir, usefd)
 	}
@@ -449,7 +449,7 @@ func (s *ResourceScope) removeConnForConstraints(dir network.Direction, usefd bo
 	}
 }
 
-func (s *ResourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
+func (s *resourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -460,7 +460,7 @@ func (s *ResourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
 	s.rc.removeConn(dir, usefd)
 }
 
-func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
+func (s *resourceScope) ReserveForChild(st network.ScopeStat) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -486,7 +486,7 @@ func (s *ResourceScope) ReserveForChild(st network.ScopeStat) error {
 	return nil
 }
 
-func (s *ResourceScope) ReleaseForChild(st network.ScopeStat) {
+func (s *resourceScope) ReleaseForChild(st network.ScopeStat) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -499,7 +499,7 @@ func (s *ResourceScope) ReleaseForChild(st network.ScopeStat) {
 	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD)
 }
 
-func (s *ResourceScope) ReleaseResources(st network.ScopeStat) {
+func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -520,7 +520,7 @@ func (s *ResourceScope) ReleaseResources(st network.ScopeStat) {
 	}
 }
 
-func (s *ResourceScope) BeginTransaction() (network.TransactionalScope, error) {
+func (s *resourceScope) BeginTransaction() (network.TransactionalScope, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -529,10 +529,10 @@ func (s *ResourceScope) BeginTransaction() (network.TransactionalScope, error) {
 	}
 
 	s.refCnt++
-	return NewTxnResourceScope(s), nil
+	return newTxnResourceScope(s), nil
 }
 
-func (s *ResourceScope) Done() {
+func (s *resourceScope) Done() {
 	s.Lock()
 	defer s.Unlock()
 
@@ -561,28 +561,28 @@ func (s *ResourceScope) Done() {
 	s.done = true
 }
 
-func (s *ResourceScope) Stat() network.ScopeStat {
+func (s *resourceScope) Stat() network.ScopeStat {
 	s.Lock()
 	defer s.Unlock()
 
 	return s.rc.stat()
 }
 
-func (s *ResourceScope) IncRef() {
+func (s *resourceScope) IncRef() {
 	s.Lock()
 	defer s.Unlock()
 
 	s.refCnt++
 }
 
-func (s *ResourceScope) DecRef() {
+func (s *resourceScope) DecRef() {
 	s.Lock()
 	defer s.Unlock()
 
 	s.refCnt--
 }
 
-func (s *ResourceScope) IsUnused() bool {
+func (s *resourceScope) IsUnused() bool {
 	s.Lock()
 	defer s.Unlock()
 

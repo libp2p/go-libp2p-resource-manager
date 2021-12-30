@@ -11,101 +11,101 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 )
 
-type ResourceManager struct {
+type resourceManager struct {
 	limits Limiter
 
-	system    *SystemScope
-	transient *TransientScope
+	system    *systemScope
+	transient *transientScope
 
 	mx    sync.Mutex
-	svc   map[string]*ServiceScope
-	proto map[protocol.ID]*ProtocolScope
-	peer  map[peer.ID]*PeerScope
+	svc   map[string]*serviceScope
+	proto map[protocol.ID]*protocolScope
+	peer  map[peer.ID]*peerScope
 
 	cancelCtx context.Context
 	cancel    func()
 	wg        sync.WaitGroup
 }
 
-var _ network.ResourceManager = (*ResourceManager)(nil)
+var _ network.ResourceManager = (*resourceManager)(nil)
 
-type SystemScope struct {
-	*ResourceScope
+type systemScope struct {
+	*resourceScope
 }
 
-var _ network.ResourceScope = (*SystemScope)(nil)
+var _ network.ResourceScope = (*systemScope)(nil)
 
-type TransientScope struct {
-	*ResourceScope
+type transientScope struct {
+	*resourceScope
 
-	system *SystemScope
+	system *systemScope
 }
 
-var _ network.ResourceScope = (*TransientScope)(nil)
+var _ network.ResourceScope = (*transientScope)(nil)
 
-type ServiceScope struct {
-	*ResourceScope
+type serviceScope struct {
+	*resourceScope
 
 	name   string
-	system *SystemScope
+	system *systemScope
 }
 
-var _ network.ServiceScope = (*ServiceScope)(nil)
+var _ network.ServiceScope = (*serviceScope)(nil)
 
-type ProtocolScope struct {
-	*ResourceScope
+type protocolScope struct {
+	*resourceScope
 
 	proto  protocol.ID
-	system *SystemScope
+	system *systemScope
 }
 
-var _ network.ProtocolScope = (*ProtocolScope)(nil)
+var _ network.ProtocolScope = (*protocolScope)(nil)
 
-type PeerScope struct {
-	*ResourceScope
+type peerScope struct {
+	*resourceScope
 
 	peer  peer.ID
-	rcmgr *ResourceManager
+	rcmgr *resourceManager
 }
 
-var _ network.PeerScope = (*PeerScope)(nil)
+var _ network.PeerScope = (*peerScope)(nil)
 
-type ConnectionScope struct {
-	*ResourceScope
+type connectionScope struct {
+	*resourceScope
 
 	dir   network.Direction
 	usefd bool
-	rcmgr *ResourceManager
-	peer  *PeerScope
+	rcmgr *resourceManager
+	peer  *peerScope
 }
 
-var _ network.ConnectionScope = (*ConnectionScope)(nil)
-var _ network.ConnectionManagementScope = (*ConnectionScope)(nil)
+var _ network.ConnectionScope = (*connectionScope)(nil)
+var _ network.ConnectionManagementScope = (*connectionScope)(nil)
 
-type StreamScope struct {
-	*ResourceScope
+type streamScope struct {
+	*resourceScope
 
 	dir   network.Direction
-	rcmgr *ResourceManager
-	peer  *PeerScope
-	svc   *ServiceScope
-	proto *ProtocolScope
+	rcmgr *resourceManager
+	peer  *peerScope
+	svc   *serviceScope
+	proto *protocolScope
 }
 
-var _ network.StreamScope = (*StreamScope)(nil)
-var _ network.StreamManagementScope = (*StreamScope)(nil)
+var _ network.StreamScope = (*streamScope)(nil)
+var _ network.StreamManagementScope = (*streamScope)(nil)
 
-func NewResourceManager(limits Limiter) *ResourceManager {
-	r := &ResourceManager{
+func NewResourceManager(limits Limiter) network.ResourceManager {
+	r := &resourceManager{
 		limits: limits,
-		svc:    make(map[string]*ServiceScope),
-		proto:  make(map[protocol.ID]*ProtocolScope),
-		peer:   make(map[peer.ID]*PeerScope),
+		svc:    make(map[string]*serviceScope),
+		proto:  make(map[protocol.ID]*protocolScope),
+		peer:   make(map[peer.ID]*peerScope),
 	}
 
-	r.system = NewSystemScope(limits.GetSystemLimits())
+	r.system = newSystemScope(limits.GetSystemLimits())
 	r.system.IncRef()
-	r.transient = NewTransientScope(limits.GetTransientLimits(), r.system)
+	r.transient = newTransientScope(limits.GetTransientLimits(), r.system)
 	r.transient.IncRef()
 
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
@@ -116,42 +116,42 @@ func NewResourceManager(limits Limiter) *ResourceManager {
 	return r
 }
 
-func (r *ResourceManager) ViewSystem(f func(network.ResourceScope) error) error {
+func (r *resourceManager) ViewSystem(f func(network.ResourceScope) error) error {
 	return f(r.system)
 }
 
-func (r *ResourceManager) ViewTransient(f func(network.ResourceScope) error) error {
+func (r *resourceManager) ViewTransient(f func(network.ResourceScope) error) error {
 	return f(r.transient)
 }
 
-func (r *ResourceManager) ViewService(srv string, f func(network.ServiceScope) error) error {
+func (r *resourceManager) ViewService(srv string, f func(network.ServiceScope) error) error {
 	s := r.getServiceScope(srv)
 	defer s.DecRef()
 
 	return f(s)
 }
 
-func (r *ResourceManager) ViewProtocol(proto protocol.ID, f func(network.ProtocolScope) error) error {
+func (r *resourceManager) ViewProtocol(proto protocol.ID, f func(network.ProtocolScope) error) error {
 	s := r.getProtocolScope(proto)
 	defer s.DecRef()
 
 	return f(s)
 }
 
-func (r *ResourceManager) ViewPeer(p peer.ID, f func(network.PeerScope) error) error {
+func (r *resourceManager) ViewPeer(p peer.ID, f func(network.PeerScope) error) error {
 	s := r.getPeerScope(p)
 	defer s.DecRef()
 
 	return f(s)
 }
 
-func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
+func (r *resourceManager) getServiceScope(svc string) *serviceScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
 	s, ok := r.svc[svc]
 	if !ok {
-		s = NewServiceScope(svc, r.limits.GetServiceLimits(svc), r.system)
+		s = newServiceScope(svc, r.limits.GetServiceLimits(svc), r.system)
 		r.svc[svc] = s
 	}
 
@@ -159,13 +159,13 @@ func (r *ResourceManager) getServiceScope(svc string) *ServiceScope {
 	return s
 }
 
-func (r *ResourceManager) getProtocolScope(proto protocol.ID) *ProtocolScope {
+func (r *resourceManager) getProtocolScope(proto protocol.ID) *protocolScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
 	s, ok := r.proto[proto]
 	if !ok {
-		s = NewProtocolScope(proto, r.limits.GetProtocolLimits(proto), r.system)
+		s = newProtocolScope(proto, r.limits.GetProtocolLimits(proto), r.system)
 		r.proto[proto] = s
 	}
 
@@ -173,13 +173,13 @@ func (r *ResourceManager) getProtocolScope(proto protocol.ID) *ProtocolScope {
 	return s
 }
 
-func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
+func (r *resourceManager) getPeerScope(p peer.ID) *peerScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
 	s, ok := r.peer[p]
 	if !ok {
-		s = NewPeerScope(p, r.limits.GetPeerLimits(p), r)
+		s = newPeerScope(p, r.limits.GetPeerLimits(p), r)
 		r.peer[p] = s
 	}
 
@@ -187,8 +187,8 @@ func (r *ResourceManager) getPeerScope(p peer.ID) *PeerScope {
 	return s
 }
 
-func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionManagementScope, error) {
-	conn := NewConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
+func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionManagementScope, error) {
+	conn := newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
 	if err := conn.AddConn(dir, usefd); err != nil {
 		conn.Done()
@@ -198,9 +198,9 @@ func (r *ResourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	return conn, nil
 }
 
-func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamManagementScope, error) {
+func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamManagementScope, error) {
 	peer := r.getPeerScope(p)
-	stream := NewStreamScope(dir, r.limits.GetStreamLimits(p), peer)
+	stream := newStreamScope(dir, r.limits.GetStreamLimits(p), peer)
 	peer.DecRef() // we have the reference in constraints
 
 	err := stream.AddStream(dir)
@@ -212,14 +212,14 @@ func (r *ResourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 	return stream, nil
 }
 
-func (r *ResourceManager) Close() error {
+func (r *resourceManager) Close() error {
 	r.cancel()
 	r.wg.Wait()
 
 	return nil
 }
 
-func (r *ResourceManager) background() {
+func (r *resourceManager) background() {
 	defer r.wg.Done()
 
 	// periodically garbage collects unused peer and protocol scopes
@@ -236,7 +236,7 @@ func (r *ResourceManager) background() {
 	}
 }
 
-func (r *ResourceManager) gc() {
+func (r *resourceManager) gc() {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
@@ -255,80 +255,80 @@ func (r *ResourceManager) gc() {
 	}
 }
 
-func NewSystemScope(limit Limit) *SystemScope {
-	return &SystemScope{
-		ResourceScope: NewResourceScope(limit, nil),
+func newSystemScope(limit Limit) *systemScope {
+	return &systemScope{
+		resourceScope: newResourceScope(limit, nil),
 	}
 }
 
-func NewTransientScope(limit Limit, system *SystemScope) *TransientScope {
-	return &TransientScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{system.ResourceScope}),
+func newTransientScope(limit Limit, system *systemScope) *transientScope {
+	return &transientScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
 		system:        system,
 	}
 }
 
-func NewServiceScope(name string, limit Limit, system *SystemScope) *ServiceScope {
-	return &ServiceScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{system.ResourceScope}),
+func newServiceScope(name string, limit Limit, system *systemScope) *serviceScope {
+	return &serviceScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
 		name:          name,
 		system:        system,
 	}
 }
 
-func NewProtocolScope(proto protocol.ID, limit Limit, system *SystemScope) *ProtocolScope {
-	return &ProtocolScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{system.ResourceScope}),
+func newProtocolScope(proto protocol.ID, limit Limit, system *systemScope) *protocolScope {
+	return &protocolScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
 		proto:         proto,
 		system:        system,
 	}
 }
 
-func NewPeerScope(p peer.ID, limit Limit, rcmgr *ResourceManager) *PeerScope {
-	return &PeerScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{rcmgr.system.ResourceScope}),
+func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
+	return &peerScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}),
 		peer:          p,
 		rcmgr:         rcmgr,
 	}
 }
 
-func NewConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *ResourceManager) *ConnectionScope {
-	return &ConnectionScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{rcmgr.transient.ResourceScope, rcmgr.system.ResourceScope}),
+func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager) *connectionScope {
+	return &connectionScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope}),
 		dir:           dir,
 		usefd:         usefd,
 		rcmgr:         rcmgr,
 	}
 }
 
-func NewStreamScope(dir network.Direction, limit Limit, peer *PeerScope) *StreamScope {
-	return &StreamScope{
-		ResourceScope: NewResourceScope(limit, []*ResourceScope{peer.ResourceScope, peer.rcmgr.transient.ResourceScope, peer.rcmgr.system.ResourceScope}),
+func newStreamScope(dir network.Direction, limit Limit, peer *peerScope) *streamScope {
+	return &streamScope{
+		resourceScope: newResourceScope(limit, []*resourceScope{peer.resourceScope, peer.rcmgr.transient.resourceScope, peer.rcmgr.system.resourceScope}),
 		dir:           dir,
 		rcmgr:         peer.rcmgr,
 		peer:          peer,
 	}
 }
 
-func (s *ServiceScope) Name() string {
+func (s *serviceScope) Name() string {
 	return s.name
 }
 
-func (s *ProtocolScope) Protocol() protocol.ID {
+func (s *protocolScope) Protocol() protocol.ID {
 	return s.proto
 }
 
-func (s *PeerScope) Peer() peer.ID {
+func (s *peerScope) Peer() peer.ID {
 	return s.peer
 }
 
-func (s *ConnectionScope) PeerScope() network.PeerScope {
+func (s *connectionScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.peer
 }
 
-func (s *ConnectionScope) SetPeer(p peer.ID) error {
+func (s *connectionScope) SetPeer(p peer.ID) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -338,7 +338,7 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	s.peer = s.rcmgr.getPeerScope(p)
 
 	// juggle resources from transient scope to peer scope
-	stat := s.ResourceScope.rc.stat()
+	stat := s.resourceScope.rc.stat()
 	if err := s.peer.ReserveForChild(stat); err != nil {
 		s.peer.DecRef()
 		s.peer = nil
@@ -349,22 +349,22 @@ func (s *ConnectionScope) SetPeer(p peer.ID) error {
 	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
-	constraints := []*ResourceScope{
-		s.peer.ResourceScope,
-		s.rcmgr.system.ResourceScope,
+	constraints := []*resourceScope{
+		s.peer.resourceScope,
+		s.rcmgr.system.resourceScope,
 	}
-	s.ResourceScope.constraints = constraints
+	s.resourceScope.constraints = constraints
 
 	return nil
 }
 
-func (s *StreamScope) ProtocolScope() network.ProtocolScope {
+func (s *streamScope) ProtocolScope() network.ProtocolScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.proto
 }
 
-func (s *StreamScope) SetProtocol(proto protocol.ID) error {
+func (s *streamScope) SetProtocol(proto protocol.ID) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -375,7 +375,7 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	s.proto = s.rcmgr.getProtocolScope(proto)
 
 	// juggle resources from transient scope to protocol scope
-	stat := s.ResourceScope.rc.stat()
+	stat := s.resourceScope.rc.stat()
 	if err := s.proto.ReserveForChild(stat); err != nil {
 		s.proto.DecRef()
 		s.proto = nil
@@ -386,23 +386,23 @@ func (s *StreamScope) SetProtocol(proto protocol.ID) error {
 	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
-	constraints := []*ResourceScope{
-		s.peer.ResourceScope,
-		s.proto.ResourceScope,
-		s.rcmgr.system.ResourceScope,
+	constraints := []*resourceScope{
+		s.peer.resourceScope,
+		s.proto.resourceScope,
+		s.rcmgr.system.resourceScope,
 	}
-	s.ResourceScope.constraints = constraints
+	s.resourceScope.constraints = constraints
 
 	return nil
 }
 
-func (s *StreamScope) ServiceScope() network.ServiceScope {
+func (s *streamScope) ServiceScope() network.ServiceScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.svc
 }
 
-func (s *StreamScope) SetService(svc string) error {
+func (s *streamScope) SetService(svc string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -416,25 +416,25 @@ func (s *StreamScope) SetService(svc string) error {
 	s.svc = s.rcmgr.getServiceScope(svc)
 
 	// reserve resources in service
-	if err := s.svc.ReserveForChild(s.ResourceScope.rc.stat()); err != nil {
+	if err := s.svc.ReserveForChild(s.resourceScope.rc.stat()); err != nil {
 		s.svc.DecRef()
 		s.svc = nil
 		return err
 	}
 
 	// update constraints
-	constraints := []*ResourceScope{
-		s.peer.ResourceScope,
-		s.proto.ResourceScope,
-		s.svc.ResourceScope,
-		s.rcmgr.system.ResourceScope,
+	constraints := []*resourceScope{
+		s.peer.resourceScope,
+		s.proto.resourceScope,
+		s.svc.resourceScope,
+		s.rcmgr.system.resourceScope,
 	}
-	s.ResourceScope.constraints = constraints
+	s.resourceScope.constraints = constraints
 
 	return nil
 }
 
-func (s *StreamScope) PeerScope() network.PeerScope {
+func (s *streamScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
 	return s.peer
