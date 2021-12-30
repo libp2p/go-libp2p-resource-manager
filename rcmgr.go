@@ -17,14 +17,14 @@ type resourceManager struct {
 	system    *systemScope
 	transient *transientScope
 
+	cancelCtx context.Context
+	cancel    func()
+	wg        sync.WaitGroup
+
 	mx    sync.Mutex
 	svc   map[string]*serviceScope
 	proto map[protocol.ID]*protocolScope
 	peer  map[peer.ID]*peerScope
-
-	cancelCtx context.Context
-	cancel    func()
-	wg        sync.WaitGroup
 }
 
 var _ network.ResourceManager = (*resourceManager)(nil)
