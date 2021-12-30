@@ -144,7 +144,7 @@ func TestResources(t *testing.T) {
 }
 
 func TestResourceScopeSimple(t *testing.T) {
-	s := NewResourceScope(
+	s := newResourceScope(
 		&StaticLimit{
 			Memory:          4096,
 			StreamsInbound:  1,
@@ -168,7 +168,7 @@ func TestResourceScopeSimple(t *testing.T) {
 	testResourceScopeBasic(t, s)
 }
 
-func testResourceScopeBasic(t *testing.T, s *ResourceScope) {
+func testResourceScopeBasic(t *testing.T, s *resourceScope) {
 	if err := s.ReserveMemory(2048); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func testResourceScopeBasic(t *testing.T, s *ResourceScope) {
 }
 
 func TestResourceScopeTxnBasic(t *testing.T) {
-	s := NewResourceScope(
+	s := newResourceScope(
 		&StaticLimit{
 			Memory:          4096,
 			StreamsInbound:  1,
@@ -271,14 +271,14 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testResourceScopeBasic(t, txn.(*ResourceScope))
+	testResourceScopeBasic(t, txn.(*resourceScope))
 	checkResources(t, &s.rc, network.ScopeStat{})
 
 	// check constraint propagation
 	if err := txn.ReserveMemory(4096); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, &txn.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
 	txn.Done()
 	checkResources(t, &s.rc, network.ScopeStat{})
@@ -287,7 +287,7 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 }
 
 func TestResourceScopeTxnZombie(t *testing.T) {
-	s := NewResourceScope(
+	s := newResourceScope(
 		&StaticLimit{
 			Memory:          4096,
 			StreamsInbound:  1,
@@ -312,8 +312,8 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 	if err := txn2.ReserveMemory(4096); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
 
 	txn1.Done()
@@ -327,7 +327,7 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 }
 
 func TestResourceScopeTxnTree(t *testing.T) {
-	s := NewResourceScope(
+	s := newResourceScope(
 		&StaticLimit{
 			Memory:          4096,
 			StreamsInbound:  1,
@@ -367,37 +367,37 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	if err := txn3.ReserveMemory(1024); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn3.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 1024})
 
 	if err := txn4.ReserveMemory(1024); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn4.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn3.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, &txn4.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 2048})
 
 	if err := txn5.ReserveMemory(1024); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn5.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn4.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn3.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 2048})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 3072})
+	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn4.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 3072})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 3072})
 
 	if err := txn1.ReserveMemory(1024); err != nil {
 		t.Fatal(err)
 	}
-	checkResources(t, &txn5.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn4.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn3.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 2048})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn4.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
 
 	if err := txn5.ReserveMemory(1024); err == nil {
@@ -412,11 +412,11 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	if err := txn2.ReserveMemory(1024); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	checkResources(t, &txn5.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn4.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn3.(*ResourceScope).rc, network.ScopeStat{Memory: 1024})
-	checkResources(t, &txn2.(*ResourceScope).rc, network.ScopeStat{Memory: 2048})
-	checkResources(t, &txn1.(*ResourceScope).rc, network.ScopeStat{Memory: 4096})
+	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn4.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
+	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 2048})
+	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
 
 	txn1.Done()
@@ -434,7 +434,7 @@ func TestResourceScopeDAG(t *testing.T) {
 	//          |  ------/
 	//          \
 	//           ------> s6
-	s1 := NewResourceScope(
+	s1 := newResourceScope(
 		&StaticLimit{
 			Memory:          4096,
 			StreamsInbound:  4,
@@ -445,7 +445,7 @@ func TestResourceScopeDAG(t *testing.T) {
 		},
 		nil,
 	)
-	s2 := NewResourceScope(
+	s2 := newResourceScope(
 		&StaticLimit{
 			Memory:          2048,
 			StreamsInbound:  2,
@@ -454,9 +454,9 @@ func TestResourceScopeDAG(t *testing.T) {
 			ConnsOutbound:   2,
 			FD:              2,
 		},
-		[]*ResourceScope{s1},
+		[]*resourceScope{s1},
 	)
-	s3 := NewResourceScope(
+	s3 := newResourceScope(
 		&StaticLimit{
 			Memory:          2048,
 			StreamsInbound:  2,
@@ -465,9 +465,9 @@ func TestResourceScopeDAG(t *testing.T) {
 			ConnsOutbound:   2,
 			FD:              2,
 		},
-		[]*ResourceScope{s1},
+		[]*resourceScope{s1},
 	)
-	s4 := NewResourceScope(
+	s4 := newResourceScope(
 		&StaticLimit{
 			Memory:          2048,
 			StreamsInbound:  2,
@@ -476,9 +476,9 @@ func TestResourceScopeDAG(t *testing.T) {
 			ConnsOutbound:   2,
 			FD:              2,
 		},
-		[]*ResourceScope{s2, s3, s1},
+		[]*resourceScope{s2, s3, s1},
 	)
-	s5 := NewResourceScope(
+	s5 := newResourceScope(
 		&StaticLimit{
 			Memory:          2048,
 			StreamsInbound:  2,
@@ -487,9 +487,9 @@ func TestResourceScopeDAG(t *testing.T) {
 			ConnsOutbound:   2,
 			FD:              2,
 		},
-		[]*ResourceScope{s2, s1},
+		[]*resourceScope{s2, s1},
 	)
-	s6 := NewResourceScope(
+	s6 := newResourceScope(
 		&StaticLimit{
 			Memory:          2048,
 			StreamsInbound:  2,
@@ -498,7 +498,7 @@ func TestResourceScopeDAG(t *testing.T) {
 			ConnsOutbound:   2,
 			FD:              2,
 		},
-		[]*ResourceScope{s3, s1},
+		[]*resourceScope{s3, s1},
 	)
 
 	if err := s4.ReserveMemory(1024); err != nil {
@@ -934,41 +934,41 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	//          |  ------/
 	//          \
 	//           ------> s6
-	s1 := NewResourceScope(
+	s1 := newResourceScope(
 		&StaticLimit{
 			Memory: 8192,
 		},
 		nil,
 	)
-	s2 := NewResourceScope(
+	s2 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*ResourceScope{s1},
+		[]*resourceScope{s1},
 	)
-	s3 := NewResourceScope(
+	s3 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*ResourceScope{s1},
+		[]*resourceScope{s1},
 	)
-	s4 := NewResourceScope(
+	s4 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*ResourceScope{s2, s3, s1},
+		[]*resourceScope{s2, s3, s1},
 	)
-	s5 := NewResourceScope(
+	s5 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*ResourceScope{s2, s1},
+		[]*resourceScope{s2, s1},
 	)
-	s6 := NewResourceScope(
+	s6 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*ResourceScope{s3, s1},
+		[]*resourceScope{s3, s1},
 	)
 
 	txn4, err := s4.BeginTransaction()
