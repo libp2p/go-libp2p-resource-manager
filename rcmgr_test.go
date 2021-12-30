@@ -91,62 +91,62 @@ func TestResourceManager(t *testing.T) {
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
 			},
-		})
+		}).(*resourceManager)
 
 	defer mgr.Close()
 
-	checkRefCnt := func(s *ResourceScope, count int) {
+	checkRefCnt := func(s *resourceScope, count int) {
 		t.Helper()
 		if refCnt := s.refCnt; refCnt != count {
 			t.Fatalf("expected refCnt of %d, got %d", count, refCnt)
 		}
 	}
-	checkSystem := func(check func(s *ResourceScope)) {
+	checkSystem := func(check func(s *resourceScope)) {
 		if err := mgr.ViewSystem(func(s network.ResourceScope) error {
-			check(s.(*SystemScope).ResourceScope)
+			check(s.(*systemScope).resourceScope)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	checkTransient := func(check func(s *ResourceScope)) {
+	checkTransient := func(check func(s *resourceScope)) {
 		if err := mgr.ViewTransient(func(s network.ResourceScope) error {
-			check(s.(*TransientScope).ResourceScope)
+			check(s.(*transientScope).resourceScope)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	checkService := func(svc string, check func(s *ResourceScope)) {
+	checkService := func(svc string, check func(s *resourceScope)) {
 		if err := mgr.ViewService(svc, func(s network.ServiceScope) error {
-			check(s.(*ServiceScope).ResourceScope)
+			check(s.(*serviceScope).resourceScope)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	checkProtocol := func(p protocol.ID, check func(s *ResourceScope)) {
+	checkProtocol := func(p protocol.ID, check func(s *resourceScope)) {
 		if err := mgr.ViewProtocol(p, func(s network.ProtocolScope) error {
-			check(s.(*ProtocolScope).ResourceScope)
+			check(s.(*protocolScope).resourceScope)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	checkPeer := func(p peer.ID, check func(s *ResourceScope)) {
+	checkPeer := func(p peer.ID, check func(s *resourceScope)) {
 		if err := mgr.ViewPeer(p, func(s network.PeerScope) error {
-			check(s.(*PeerScope).ResourceScope)
+			check(s.(*peerScope).resourceScope)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -157,11 +157,11 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
@@ -177,11 +177,11 @@ func TestResourceManager(t *testing.T) {
 	// close it to check resources are reclaimed
 	conn.Done()
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -192,11 +192,11 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
@@ -206,15 +206,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 4)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -225,11 +225,11 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 2})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
@@ -239,15 +239,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal("expected SetPeer to fail")
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 2})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
@@ -260,11 +260,11 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 0})
 	})
@@ -273,15 +273,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -292,15 +292,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 4)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 6)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
@@ -313,15 +313,15 @@ func TestResourceManager(t *testing.T) {
 	// close the stream to check resource reclamation
 	stream.Done()
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -332,15 +332,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 4)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 6)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
@@ -349,19 +349,19 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 4)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 7)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -372,15 +372,15 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 8)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
@@ -389,19 +389,19 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 8)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -412,19 +412,19 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 10)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
@@ -433,23 +433,23 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal("expected SetProtocol to fail")
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 10)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
@@ -459,27 +459,27 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoB, func(s *ResourceScope) {
+	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 11)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -489,31 +489,31 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkService(svcA, func(s *ResourceScope) {
+	checkService(svcA, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoB, func(s *ResourceScope) {
+	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 12)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -522,31 +522,31 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkService(svcA, func(s *ResourceScope) {
+	checkService(svcA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoB, func(s *ResourceScope) {
+	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 12)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -555,31 +555,31 @@ func TestResourceManager(t *testing.T) {
 		t.Fatal("expected SetService to fail")
 	}
 
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 5)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkService(svcA, func(s *ResourceScope) {
+	checkService(svcA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
-	checkProtocol(protoB, func(s *ResourceScope) {
+	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 12)
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 3, NumConnsInbound: 2, NumFD: 1})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
@@ -614,42 +614,42 @@ func TestResourceManager(t *testing.T) {
 	conn2.Done()
 
 	// check everything released
-	checkPeer(peerA, func(s *ResourceScope) {
+	checkPeer(peerA, func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkPeer(peerB, func(s *ResourceScope) {
+	checkPeer(peerB, func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkService(svcA, func(s *ResourceScope) {
+	checkService(svcA, func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkProtocol(protoA, func(s *ResourceScope) {
+	checkProtocol(protoA, func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkProtocol(protoB, func(s *ResourceScope) {
+	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 7)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
 
 	mgr.gc()
 
-	checkSystem(func(s *ResourceScope) {
+	checkSystem(func(s *resourceScope) {
 		checkRefCnt(s, 3)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
-	checkTransient(func(s *ResourceScope) {
+	checkTransient(func(s *resourceScope) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
