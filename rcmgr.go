@@ -79,8 +79,8 @@ type connectionScope struct {
 	peer  *peerScope
 }
 
-var _ network.ConnectionScope = (*connectionScope)(nil)
-var _ network.ConnectionManagementScope = (*connectionScope)(nil)
+var _ network.ConnScope = (*connectionScope)(nil)
+var _ network.ConnManagementScope = (*connectionScope)(nil)
 
 type streamScope struct {
 	*resourceScope
@@ -187,7 +187,7 @@ func (r *resourceManager) getPeerScope(p peer.ID) *peerScope {
 	return s
 }
 
-func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnectionManagementScope, error) {
+func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnManagementScope, error) {
 	conn := newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
 	if err := conn.AddConn(dir, usefd); err != nil {
