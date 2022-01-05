@@ -4,6 +4,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+
+	"github.com/pbnjay/memory"
 )
 
 type Limit interface {
@@ -50,6 +52,70 @@ type BasicLimiter struct {
 }
 
 var _ Limiter = (*BasicLimiter)(nil)
+
+// NewDefaultLimiter creates a limiter with default limits and a system memory cap; if the
+// system memory cap is 0, then 1/8th of the available memory is used.
+func NewDefaultLimiter(memoryCap int64) *BasicLimiter {
+	if memoryCap == 0 {
+		memoryCap = int64(memory.TotalMemory() / 8)
+	}
+
+	system := &StaticLimit{
+		Memory:          memoryCap,
+		StreamsInbound:  4096,
+		StreamsOutbound: 16384,
+		ConnsInbound:    256,
+		ConnsOutbound:   512,
+		FD:              512,
+	}
+	transient := &StaticLimit{
+		Memory:          memoryCap / 16,
+		StreamsInbound:  128,
+		StreamsOutbound: 512,
+		ConnsInbound:    32,
+		ConnsOutbound:   128,
+		FD:              128,
+	}
+	svc := &StaticLimit{
+		Memory:          memoryCap / 2,
+		StreamsInbound:  2048,
+		StreamsOutbound: 8192,
+	}
+	proto := &StaticLimit{
+		Memory:          memoryCap / 4,
+		StreamsInbound:  1024,
+		StreamsOutbound: 4096,
+	}
+	peer := &StaticLimit{
+		Memory:          memoryCap / 16,
+		StreamsInbound:  512,
+		StreamsOutbound: 2048,
+		ConnsInbound:    8,
+		ConnsOutbound:   16,
+		FD:              8,
+	}
+	conn := &StaticLimit{
+		Memory:        16 << 20,
+		ConnsInbound:  1,
+		ConnsOutbound: 1,
+		FD:            1,
+	}
+	stream := &StaticLimit{
+		Memory:          16 << 20,
+		StreamsInbound:  1,
+		StreamsOutbound: 1,
+	}
+
+	return &BasicLimiter{
+		SystemLimits:          system,
+		TransientLimits:       transient,
+		DefaultServiceLimits:  svc,
+		DefaultProtocolLimits: proto,
+		DefaultPeerLimits:     peer,
+		ConnLimits:            conn,
+		StreamLimits:          stream,
+	}
+}
 
 func (l *StaticLimit) GetMemoryLimit() int64 {
 	return l.Memory
