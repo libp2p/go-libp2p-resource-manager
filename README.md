@@ -154,7 +154,7 @@ not have a service associated or for resource control within a
 service.
 
 For instance, a service that is not aware of the resource manager and
-has not be ported to mark its streams, may still gain limits
+has not been ported to mark its streams, may still gain limits
 transparently without any programmer intervention.  Furthermore, the
 protocol scope can constrain resource usage for services that
 implement multiple protocols for the shake of backwards
