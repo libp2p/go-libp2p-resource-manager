@@ -20,7 +20,7 @@ accounting for multiple levels of resource constraints.
   changes. That is, existing applications should be oblivious of the
   resource manager and transparently obtain limits which protect it
   from resource exhaustion and OOM conditions.
-- On the same time, the design must support opt-in resource usage
+- At the same time, the design must support opt-in resource usage
   accounting for applications who want to explicitly utilize the
   facilities of the system to inform about and constrain their own
   resource usage.
