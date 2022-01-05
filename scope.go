@@ -58,28 +58,36 @@ func newTxnResourceScope(owner *resourceScope) *resourceScope {
 }
 
 // Resources implementation
-func (rc *resources) checkMemory(rsvp int64) error {
+func (rc *resources) checkMemory(rsvp int64) (network.MemoryStatus, error) {
 	// overflow check; this also has the side effect that we cannot reserve negative memory.
 	newmem := rc.memory + rsvp
 	if newmem < rc.memory {
-		return fmt.Errorf("memory reservation overflow: %w", network.ErrResourceLimitExceeded)
+		return network.MemoryStatusOK, fmt.Errorf("memory reservation overflow: %w", network.ErrResourceLimitExceeded)
 	}
 
 	// limit check
-	if newmem > rc.limit.GetMemoryLimit() {
-		return fmt.Errorf("cannot reserve memory: %w", network.ErrResourceLimitExceeded)
-	}
+	limit := rc.limit.GetMemoryLimit()
+	switch {
+	case newmem > limit:
+		return network.MemoryStatusOK, fmt.Errorf("cannot reserve memory: %w", network.ErrResourceLimitExceeded)
+	case newmem > int64(0.8*float64(limit)):
+		return network.MemoryStatusCritical, nil
 
-	return nil
+	case newmem > int64(0.5*float64(limit)):
+		return network.MemoryStatusCaution, nil
+
+	default:
+		return network.MemoryStatusOK, nil
+	}
 }
 
-func (rc *resources) reserveMemory(size int64) error {
-	if err := rc.checkMemory(size); err != nil {
-		return err
+func (rc *resources) reserveMemory(size int64) (status network.MemoryStatus, err error) {
+	if status, err = rc.checkMemory(size); err != nil {
+		return status, err
 	}
 
 	rc.memory += size
-	return nil
+	return status, nil
 }
 
 func (rc *resources) releaseMemory(size int64) {
@@ -196,37 +204,47 @@ func (rc *resources) stat() network.ScopeStat {
 }
 
 // resourceScope implementation
-func (s *resourceScope) ReserveMemory(size int) error {
+func (s *resourceScope) ReserveMemory(size int) (status network.MemoryStatus, err error) {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return network.MemoryStatusOK, network.ErrResourceScopeClosed
 	}
 
-	if err := s.rc.reserveMemory(int64(size)); err != nil {
-		return err
+	if status, err = s.rc.reserveMemory(int64(size)); err != nil {
+		return status, err
 	}
 
-	if err := s.reserveMemoryForConstraints(size); err != nil {
+	var statusCst network.MemoryStatus
+	if statusCst, err = s.reserveMemoryForConstraints(size); err != nil {
 		s.rc.releaseMemory(int64(size))
-		return err
+		return status, err
 	}
 
-	return nil
+	if statusCst > status {
+		status = statusCst
+	}
+
+	return status, nil
 }
 
-func (s *resourceScope) reserveMemoryForConstraints(size int) error {
+func (s *resourceScope) reserveMemoryForConstraints(size int) (status network.MemoryStatus, err error) {
 	if s.owner != nil {
 		return s.owner.ReserveMemory(size)
 	}
 
 	var reserved int
-	var err error
 	for _, cst := range s.constraints {
-		if err = cst.ReserveMemoryForChild(int64(size)); err != nil {
+		var statusCst network.MemoryStatus
+		if statusCst, err = cst.ReserveMemoryForChild(int64(size)); err != nil {
 			break
 		}
+
+		if statusCst > status {
+			status = statusCst
+		}
+
 		reserved++
 	}
 
@@ -237,7 +255,7 @@ func (s *resourceScope) reserveMemoryForConstraints(size int) error {
 		}
 	}
 
-	return err
+	return status, err
 }
 
 func (s *resourceScope) releaseMemoryForConstraints(size int) {
@@ -251,12 +269,12 @@ func (s *resourceScope) releaseMemoryForConstraints(size int) {
 	}
 }
 
-func (s *resourceScope) ReserveMemoryForChild(size int64) error {
+func (s *resourceScope) ReserveMemoryForChild(size int64) (network.MemoryStatus, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return network.MemoryStatusOK, network.ErrResourceScopeClosed
 	}
 
 	return s.rc.reserveMemory(size)
@@ -460,30 +478,30 @@ func (s *resourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
 	s.rc.removeConn(dir, usefd)
 }
 
-func (s *resourceScope) ReserveForChild(st network.ScopeStat) error {
+func (s *resourceScope) ReserveForChild(st network.ScopeStat) (status network.MemoryStatus, err error) {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return network.MemoryStatusOK, network.ErrResourceScopeClosed
 	}
 
-	if err := s.rc.reserveMemory(st.Memory); err != nil {
-		return err
+	if status, err = s.rc.reserveMemory(st.Memory); err != nil {
+		return status, err
 	}
 
 	if err := s.rc.addStreams(st.NumStreamsInbound, st.NumStreamsOutbound); err != nil {
 		s.rc.releaseMemory(st.Memory)
-		return err
+		return status, err
 	}
 
 	if err := s.rc.addConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD); err != nil {
 		s.rc.releaseMemory(st.Memory)
 		s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-		return err
+		return status, err
 	}
 
-	return nil
+	return status, nil
 }
 
 func (s *resourceScope) ReleaseForChild(st network.ScopeStat) {
