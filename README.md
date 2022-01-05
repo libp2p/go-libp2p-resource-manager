@@ -157,7 +157,7 @@ For instance, a service that is not aware of the resource manager and
 has not been ported to mark its streams, may still gain limits
 transparently without any programmer intervention.  Furthermore, the
 protocol scope can constrain resource usage for services that
-implement multiple protocols for the shake of backwards
+implement multiple protocols for the sake of backwards
 compatibility. A tighter limit in some older protocol can protect the
 application from resource consumption caused by legacy clients or
 potential attacks.
