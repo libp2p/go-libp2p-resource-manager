@@ -17,79 +17,99 @@ func TestResourceManager(t *testing.T) {
 	mgr := NewResourceManager(
 		&BasicLimiter{
 			SystemLimits: &StaticLimit{
-				Memory:          16384,
-				StreamsInbound:  3,
-				StreamsOutbound: 3,
-				ConnsInbound:    3,
-				ConnsOutbound:   3,
-				FD:              2,
+				Memory: 16384,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  3,
+					StreamsOutbound: 3,
+					ConnsInbound:    3,
+					ConnsOutbound:   3,
+					FD:              2,
+				},
 			},
 			TransientLimits: &StaticLimit{
-				Memory:          4096,
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				FD:              1,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+					ConnsInbound:    1,
+					ConnsOutbound:   1,
+					FD:              1,
+				},
 			},
 			DefaultServiceLimits: &StaticLimit{
-				Memory:          4096,
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				FD:              1,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+					ConnsInbound:    1,
+					ConnsOutbound:   1,
+					FD:              1,
+				},
 			},
 			ServiceLimits: map[string]Limit{
 				svcA: &StaticLimit{
-					Memory:          8192,
-					StreamsInbound:  2,
-					StreamsOutbound: 2,
-					ConnsInbound:    2,
-					ConnsOutbound:   2,
-					FD:              1,
+					Memory: 8192,
+					BaseLimit: BaseLimit{
+						StreamsInbound:  2,
+						StreamsOutbound: 2,
+						ConnsInbound:    2,
+						ConnsOutbound:   2,
+						FD:              1,
+					},
 				},
 			},
 			DefaultProtocolLimits: &StaticLimit{
-				Memory:          4096,
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+				},
 			},
 			ProtocolLimits: map[protocol.ID]Limit{
 				protoA: &StaticLimit{
-					Memory:          8192,
-					StreamsInbound:  2,
-					StreamsOutbound: 2,
+					Memory: 8192,
+					BaseLimit: BaseLimit{
+						StreamsInbound:  2,
+						StreamsOutbound: 2,
+					},
 				},
 			},
 			DefaultPeerLimits: &StaticLimit{
-				Memory:          4096,
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				FD:              1,
-			},
-			PeerLimits: map[peer.ID]Limit{
-				peerA: &StaticLimit{
-					Memory:          8192,
-					StreamsInbound:  2,
-					StreamsOutbound: 2,
-					ConnsInbound:    2,
-					ConnsOutbound:   2,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+					ConnsInbound:    1,
+					ConnsOutbound:   1,
 					FD:              1,
 				},
 			},
+			PeerLimits: map[peer.ID]Limit{
+				peerA: &StaticLimit{
+					Memory: 8192,
+					BaseLimit: BaseLimit{
+						StreamsInbound:  2,
+						StreamsOutbound: 2,
+						ConnsInbound:    2,
+						ConnsOutbound:   2,
+						FD:              1,
+					},
+				},
+			},
 			ConnLimits: &StaticLimit{
-				Memory:        4096,
-				ConnsInbound:  1,
-				ConnsOutbound: 1,
-				FD:            1,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					ConnsInbound:  1,
+					ConnsOutbound: 1,
+					FD:            1,
+				},
 			},
 			StreamLimits: &StaticLimit{
-				Memory:          4096,
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
+				Memory: 4096,
+				BaseLimit: BaseLimit{
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+				},
 			},
 		}).(*resourceManager)
 
