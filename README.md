@@ -34,7 +34,7 @@ accounting for multiple levels of resource constraints.
 
 Perhaps the most fundamental resource is memory, and in particular
 buffers used for network operations. The system must provide an
-interface for compoenents to reserve memory that accounts for buffers
+interface for components to reserve memory that accounts for buffers
 (and possibly other live objects), which is scoped within the component.
 Before a new buffer is allocated, the component should try a memory
 reservation, which can fail if the resource limit is exceeded. It is
