@@ -5,9 +5,11 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 
+	"github.com/elastic/gosigar"
 	"github.com/pbnjay/memory"
 )
 
+// Limit is an object that specifies basic resource limits.
 type Limit interface {
 	GetMemoryLimit() int64
 	GetStreamLimit(network.Direction) int
@@ -15,6 +17,7 @@ type Limit interface {
 	GetFDLimit() int
 }
 
+// Limiter is the interface for providing limits to the resource manager.
 type Limiter interface {
 	GetSystemLimits() Limit
 	GetTransientLimits() Limit
@@ -25,9 +28,7 @@ type Limiter interface {
 	GetConnLimits() Limit
 }
 
-// static limits
-type StaticLimit struct {
-	Memory          int64
+type BaseLimit struct {
 	StreamsInbound  int
 	StreamsOutbound int
 	ConnsInbound    int
@@ -35,9 +36,30 @@ type StaticLimit struct {
 	FD              int
 }
 
+// StaticLimit is a limit with static values.
+type StaticLimit struct {
+	BaseLimit
+	Memory int64
+}
+
 var _ Limit = (*StaticLimit)(nil)
 
-// basic limiter with fixed limits
+// DynamicLimit is a limit with dynamic memory values, based on available memory
+type DynamicLimit struct {
+	BaseLimit
+
+	// MinMemory is the minimum memory for this limit
+	MinMemory int64
+	// MaxMemory is the maximum memory for this limit
+	MaxMemory int64
+	// MemoryFraction is the fraction of available memory allowed for this limit,
+	// bounded by [MinMemory, MaxMemory]
+	MemoryFraction int
+}
+
+var _ Limit = (*DynamicLimit)(nil)
+
+// BasicLimiter is a limiter with fixed limits.
 type BasicLimiter struct {
 	SystemLimits          Limit
 	TransientLimits       Limit
@@ -53,57 +75,157 @@ type BasicLimiter struct {
 
 var _ Limiter = (*BasicLimiter)(nil)
 
-// NewDefaultLimiter creates a limiter with default limits and a system memory cap; if the
-// system memory cap is 0, then 1/8th of the available memory is used.
-func NewDefaultLimiter(memoryCap int64) *BasicLimiter {
+// NewStaticLimiter creates a limiter with default limits and a system memory cap; if the
+// system memory cap is 0, then 1/8th of the total memory is used.
+func NewStaticLimiter(memoryCap int64) *BasicLimiter {
 	if memoryCap == 0 {
 		memoryCap = int64(memory.TotalMemory() / 8)
 	}
 
 	system := &StaticLimit{
-		Memory:          memoryCap,
-		StreamsInbound:  4096,
-		StreamsOutbound: 16384,
-		ConnsInbound:    256,
-		ConnsOutbound:   512,
-		FD:              512,
+		Memory: memoryCap,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  4096,
+			StreamsOutbound: 16384,
+			ConnsInbound:    256,
+			ConnsOutbound:   512,
+			FD:              512,
+		},
 	}
 	transient := &StaticLimit{
-		Memory:          memoryCap / 16,
-		StreamsInbound:  128,
-		StreamsOutbound: 512,
-		ConnsInbound:    32,
-		ConnsOutbound:   128,
-		FD:              128,
+		Memory: memoryCap / 16,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  128,
+			StreamsOutbound: 512,
+			ConnsInbound:    32,
+			ConnsOutbound:   128,
+			FD:              128,
+		},
 	}
 	svc := &StaticLimit{
-		Memory:          memoryCap / 2,
-		StreamsInbound:  2048,
-		StreamsOutbound: 8192,
+		Memory: memoryCap / 2,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  2048,
+			StreamsOutbound: 8192,
+		},
 	}
 	proto := &StaticLimit{
-		Memory:          memoryCap / 4,
-		StreamsInbound:  1024,
-		StreamsOutbound: 4096,
+		Memory: memoryCap / 4,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  1024,
+			StreamsOutbound: 4096,
+		},
 	}
 	peer := &StaticLimit{
-		Memory:          memoryCap / 16,
-		StreamsInbound:  512,
-		StreamsOutbound: 2048,
-		ConnsInbound:    8,
-		ConnsOutbound:   16,
-		FD:              8,
+		Memory: memoryCap / 16,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  512,
+			StreamsOutbound: 2048,
+			ConnsInbound:    8,
+			ConnsOutbound:   16,
+			FD:              8,
+		},
 	}
 	conn := &StaticLimit{
-		Memory:        16 << 20,
-		ConnsInbound:  1,
-		ConnsOutbound: 1,
-		FD:            1,
+		Memory: 16 << 20,
+		BaseLimit: BaseLimit{
+			ConnsInbound:  1,
+			ConnsOutbound: 1,
+			FD:            1,
+		},
 	}
 	stream := &StaticLimit{
-		Memory:          16 << 20,
-		StreamsInbound:  1,
-		StreamsOutbound: 1,
+		Memory: 16 << 20,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+		},
+	}
+
+	return &BasicLimiter{
+		SystemLimits:          system,
+		TransientLimits:       transient,
+		DefaultServiceLimits:  svc,
+		DefaultProtocolLimits: proto,
+		DefaultPeerLimits:     peer,
+		ConnLimits:            conn,
+		StreamLimits:          stream,
+	}
+}
+
+// NewDynamicLimiter creates a limiter with default limits and a memory cap dynamically computed
+// based on available memory. minMemory and maxMemory specify the system memory bounds,
+// while memFraction specifies the fraction of available memory available for the system, within
+// the specified bounds.
+func NewDynamicLimiter(minMemory, maxMemory int64, memFraction int) *BasicLimiter {
+	system := &DynamicLimit{
+		MinMemory:      minMemory,
+		MaxMemory:      maxMemory,
+		MemoryFraction: memFraction,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  4096,
+			StreamsOutbound: 16384,
+			ConnsInbound:    256,
+			ConnsOutbound:   512,
+			FD:              512,
+		},
+	}
+	transient := &DynamicLimit{
+		MinMemory:      minMemory / 16,
+		MaxMemory:      maxMemory / 16,
+		MemoryFraction: memFraction * 16,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  128,
+			StreamsOutbound: 512,
+			ConnsInbound:    32,
+			ConnsOutbound:   128,
+			FD:              128,
+		},
+	}
+	svc := &DynamicLimit{
+		MinMemory:      minMemory / 2,
+		MaxMemory:      maxMemory / 2,
+		MemoryFraction: memFraction * 2,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  2048,
+			StreamsOutbound: 8192,
+		},
+	}
+	proto := &DynamicLimit{
+		MinMemory:      minMemory / 4,
+		MaxMemory:      maxMemory / 4,
+		MemoryFraction: memFraction * 4,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  1024,
+			StreamsOutbound: 4096,
+		},
+	}
+	peer := &DynamicLimit{
+		MinMemory:      minMemory / 16,
+		MaxMemory:      maxMemory / 16,
+		MemoryFraction: memFraction * 16,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  512,
+			StreamsOutbound: 2048,
+			ConnsInbound:    8,
+			ConnsOutbound:   16,
+			FD:              8,
+		},
+	}
+	conn := &StaticLimit{
+		Memory: 16 << 20,
+		BaseLimit: BaseLimit{
+			ConnsInbound:  1,
+			ConnsOutbound: 1,
+			FD:            1,
+		},
+	}
+	stream := &StaticLimit{
+		Memory: 16 << 20,
+		BaseLimit: BaseLimit{
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+		},
 	}
 
 	return &BasicLimiter{
@@ -121,7 +243,23 @@ func (l *StaticLimit) GetMemoryLimit() int64 {
 	return l.Memory
 }
 
-func (l *StaticLimit) GetStreamLimit(dir network.Direction) int {
+func (l *DynamicLimit) GetMemoryLimit() int64 {
+	var mem gosigar.Mem
+	if err := mem.Get(); err != nil {
+		panic(err)
+	}
+
+	limit := int64(mem.ActualFree) / int64(l.MemoryFraction)
+	if limit < l.MinMemory {
+		limit = l.MinMemory
+	} else if limit > l.MaxMemory {
+		limit = l.MaxMemory
+	}
+
+	return limit
+}
+
+func (l *BaseLimit) GetStreamLimit(dir network.Direction) int {
 	if dir == network.DirInbound {
 		return l.StreamsInbound
 	} else {
@@ -129,7 +267,7 @@ func (l *StaticLimit) GetStreamLimit(dir network.Direction) int {
 	}
 }
 
-func (l *StaticLimit) GetConnLimit(dir network.Direction) int {
+func (l *BaseLimit) GetConnLimit(dir network.Direction) int {
 	if dir == network.DirInbound {
 		return l.ConnsInbound
 	} else {
@@ -137,7 +275,7 @@ func (l *StaticLimit) GetConnLimit(dir network.Direction) int {
 	}
 }
 
-func (l *StaticLimit) GetFDLimit() int {
+func (l *BaseLimit) GetFDLimit() int {
 	return l.FD
 }
 
