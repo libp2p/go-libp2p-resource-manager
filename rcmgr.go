@@ -406,26 +406,30 @@ func (s *streamScope) SetService(svc string) error {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.proto == nil {
-		return fmt.Errorf("stream scope not attached to a protocol")
-	}
 	if s.svc != nil {
 		return fmt.Errorf("stream scope already attached to a service")
+	}
+	if s.proto == nil {
+		return fmt.Errorf("stream scope not attached to a protocol")
 	}
 
 	s.svc = s.rcmgr.getServiceScope(svc)
 
 	// reserve resources in service
-	if err := s.svc.ReserveForChild(s.resourceScope.rc.stat()); err != nil {
+	stat := s.resourceScope.rc.stat()
+	if err := s.svc.ReserveForChild(stat); err != nil {
 		s.svc.DecRef()
 		s.svc = nil
 		return err
 	}
 
+	// remove resources from the protocol
+	s.proto.ReleaseForChild(stat)
+	s.proto.DecRef() // removed from constraints
+
 	// update constraints
 	constraints := []*resourceScope{
 		s.peer.resourceScope,
-		s.proto.resourceScope,
 		s.svc.resourceScope,
 		s.rcmgr.system.resourceScope,
 	}
