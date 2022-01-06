@@ -35,18 +35,21 @@ type resourceScope struct {
 	rc          resources
 	owner       *resourceScope   // set in transaction scopes, which define trees
 	constraints []*resourceScope // set in DAG scopes, it's the linearized parent set
+
+	name string // for debugging purposes
 }
 
 var _ network.ResourceScope = (*resourceScope)(nil)
 var _ network.TransactionalScope = (*resourceScope)(nil)
 
-func newResourceScope(limit Limit, constraints []*resourceScope) *resourceScope {
+func newResourceScope(limit Limit, constraints []*resourceScope, name string) *resourceScope {
 	for _, cst := range constraints {
 		cst.IncRef()
 	}
 	return &resourceScope{
 		rc:          resources{limit: limit},
 		constraints: constraints,
+		name:        name,
 	}
 }
 
@@ -54,6 +57,7 @@ func newTxnResourceScope(owner *resourceScope) *resourceScope {
 	return &resourceScope{
 		rc:    resources{limit: owner.rc.limit},
 		owner: owner,
+		name:  fmt.Sprintf("%s.txn", owner.name),
 	}
 }
 
@@ -194,21 +198,25 @@ func (rc *resources) stat() network.ScopeStat {
 }
 
 // resourceScope implementation
+func (s *resourceScope) wrapError(err error) error {
+	return fmt.Errorf("%s: %w", s.name, err)
+}
+
 func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
 	if err := s.rc.reserveMemory(int64(size), prio); err != nil {
-		return err
+		return s.wrapError(err)
 	}
 
 	if err := s.reserveMemoryForConstraints(size, prio); err != nil {
 		s.rc.releaseMemory(int64(size))
-		return err
+		return s.wrapError(err)
 	}
 
 	return nil
@@ -255,10 +263,14 @@ func (s *resourceScope) ReserveMemoryForChild(size int64, prio uint8) error {
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
-	return s.rc.reserveMemory(size, prio)
+	if err := s.rc.reserveMemory(size, prio); err != nil {
+		return s.wrapError(err)
+	}
+
+	return nil
 }
 
 func (s *resourceScope) ReleaseMemory(size int) {
@@ -289,16 +301,16 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
 	if err := s.rc.addStream(dir); err != nil {
-		return err
+		return s.wrapError(err)
 	}
 
 	if err := s.addStreamForConstraints(dir); err != nil {
 		s.rc.removeStream(dir)
-		return err
+		return s.wrapError(err)
 	}
 
 	return nil
@@ -332,10 +344,14 @@ func (s *resourceScope) AddStreamForChild(dir network.Direction) error {
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
-	return s.rc.addStream(dir)
+	if err := s.rc.addStream(dir); err != nil {
+		return s.wrapError(err)
+	}
+
+	return nil
 }
 
 func (s *resourceScope) RemoveStream(dir network.Direction) {
@@ -377,16 +393,16 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
 	if err := s.rc.addConn(dir, usefd); err != nil {
-		return err
+		return s.wrapError(err)
 	}
 
 	if err := s.addConnForConstraints(dir, usefd); err != nil {
 		s.rc.removeConn(dir, usefd)
-		return err
+		return s.wrapError(err)
 	}
 
 	return nil
@@ -420,10 +436,14 @@ func (s *resourceScope) AddConnForChild(dir network.Direction, usefd bool) error
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
-	return s.rc.addConn(dir, usefd)
+	if err := s.rc.addConn(dir, usefd); err != nil {
+		return s.wrapError(err)
+	}
+
+	return nil
 }
 
 func (s *resourceScope) RemoveConn(dir network.Direction, usefd bool) {
@@ -464,22 +484,22 @@ func (s *resourceScope) ReserveForChild(st network.ScopeStat) error {
 	defer s.Unlock()
 
 	if s.done {
-		return network.ErrResourceScopeClosed
+		return s.wrapError(network.ErrResourceScopeClosed)
 	}
 
 	if err := s.rc.reserveMemory(st.Memory, network.ReservationPriorityAlways); err != nil {
-		return err
+		return s.wrapError(err)
 	}
 
 	if err := s.rc.addStreams(st.NumStreamsInbound, st.NumStreamsOutbound); err != nil {
 		s.rc.releaseMemory(st.Memory)
-		return err
+		return s.wrapError(err)
 	}
 
 	if err := s.rc.addConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD); err != nil {
 		s.rc.releaseMemory(st.Memory)
 		s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
-		return err
+		return s.wrapError(err)
 	}
 
 	return nil
@@ -524,7 +544,7 @@ func (s *resourceScope) BeginTransaction() (network.TransactionalScope, error) {
 	defer s.Unlock()
 
 	if s.done {
-		return nil, network.ErrResourceScopeClosed
+		return nil, s.wrapError(network.ErrResourceScopeClosed)
 	}
 
 	s.refCnt++
