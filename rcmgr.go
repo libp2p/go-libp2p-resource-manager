@@ -9,7 +9,11 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+
+	logging "github.com/ipfs/go-log/v2"
 )
+
+var log = logging.Logger("rcmgr")
 
 type resourceManager struct {
 	limits Limiter
@@ -191,6 +195,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 	conn := newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
 	if err := conn.AddConn(dir, usefd); err != nil {
+		log.Debugw("blocking connection", "direction", dir, "usesFD", usefd)
 		conn.Done()
 		return nil, err
 	}
@@ -203,8 +208,8 @@ func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 	stream := newStreamScope(dir, r.limits.GetStreamLimits(p), peer)
 	peer.DecRef() // we have the reference in constraints
 
-	err := stream.AddStream(dir)
-	if err != nil {
+	if err := stream.AddStream(dir); err != nil {
+		log.Debugw("blocking stream", "direction", dir, "peer", p)
 		stream.Done()
 		return nil, err
 	}
@@ -340,6 +345,7 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 	// juggle resources from transient scope to peer scope
 	stat := s.resourceScope.rc.stat()
 	if err := s.peer.ReserveForChild(stat); err != nil {
+		log.Debugw("blocking connection for peer", "peer", p)
 		s.peer.DecRef()
 		s.peer = nil
 		return err
@@ -377,6 +383,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 	// juggle resources from transient scope to protocol scope
 	stat := s.resourceScope.rc.stat()
 	if err := s.proto.ReserveForChild(stat); err != nil {
+		log.Debugw("blocking stream for protocol", "protocol", proto)
 		s.proto.DecRef()
 		s.proto = nil
 		return err
@@ -418,6 +425,7 @@ func (s *streamScope) SetService(svc string) error {
 	// reserve resources in service
 	stat := s.resourceScope.rc.stat()
 	if err := s.svc.ReserveForChild(stat); err != nil {
+		log.Debugw("blocking stream for service", "protocol", svc)
 		s.svc.DecRef()
 		s.svc = nil
 		return err
