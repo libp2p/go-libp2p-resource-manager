@@ -1,4 +1,4 @@
-module github.com/libp2p/go-libp2p-rcmgr
+module github.com/libp2p/go-libp2p-resource-manager
 
 go 1.16
 
