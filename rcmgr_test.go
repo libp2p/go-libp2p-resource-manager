@@ -522,8 +522,8 @@ func TestResourceManager(t *testing.T) {
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
 	checkProtocol(protoA, func(s *resourceScope) {
-		checkRefCnt(s, 3)
-		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
 	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
@@ -555,8 +555,8 @@ func TestResourceManager(t *testing.T) {
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
 	checkProtocol(protoA, func(s *resourceScope) {
-		checkRefCnt(s, 3)
-		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
 	})
 	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
@@ -588,8 +588,8 @@ func TestResourceManager(t *testing.T) {
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
 	})
 	checkProtocol(protoA, func(s *resourceScope) {
-		checkRefCnt(s, 3)
-		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
 	})
 	checkProtocol(protoB, func(s *resourceScope) {
 		checkRefCnt(s, 2)
