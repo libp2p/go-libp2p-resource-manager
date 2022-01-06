@@ -243,7 +243,7 @@ func TestResourceScopeSimple(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil,
+		nil, "test",
 	)
 
 	s.IncRef()
@@ -365,7 +365,7 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil,
+		nil, "test",
 	)
 
 	txn, err := s.BeginTransaction()
@@ -400,7 +400,7 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil,
+		nil, "test",
 	)
 
 	txn1, err := s.BeginTransaction()
@@ -442,7 +442,7 @@ func TestResourceScopeTxnTree(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil,
+		nil, "test",
 	)
 
 	txn1, err := s.BeginTransaction()
@@ -551,7 +551,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              4,
 			},
 		},
-		nil,
+		nil, "test",
 	)
 	s2 := newResourceScope(
 		&StaticLimit{
@@ -564,7 +564,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s1},
+		[]*resourceScope{s1}, "test",
 	)
 	s3 := newResourceScope(
 		&StaticLimit{
@@ -577,7 +577,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s1},
+		[]*resourceScope{s1}, "test",
 	)
 	s4 := newResourceScope(
 		&StaticLimit{
@@ -590,7 +590,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s2, s3, s1},
+		[]*resourceScope{s2, s3, s1}, "test",
 	)
 	s5 := newResourceScope(
 		&StaticLimit{
@@ -603,7 +603,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s2, s1},
+		[]*resourceScope{s2, s1}, "test",
 	)
 	s6 := newResourceScope(
 		&StaticLimit{
@@ -616,7 +616,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s3, s1},
+		[]*resourceScope{s3, s1}, "test",
 	)
 
 	if err := s4.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
@@ -1056,37 +1056,37 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 		&StaticLimit{
 			Memory: 8192,
 		},
-		nil,
+		nil, "test",
 	)
 	s2 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*resourceScope{s1},
+		[]*resourceScope{s1}, "test",
 	)
 	s3 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*resourceScope{s1},
+		[]*resourceScope{s1}, "test",
 	)
 	s4 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s2, s3, s1},
+		[]*resourceScope{s2, s3, s1}, "test",
 	)
 	s5 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s2, s1},
+		[]*resourceScope{s2, s1}, "test",
 	)
 	s6 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s3, s1},
+		[]*resourceScope{s3, s1}, "test",
 	)
 
 	txn4, err := s4.BeginTransaction()

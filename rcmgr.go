@@ -257,20 +257,20 @@ func (r *resourceManager) gc() {
 
 func newSystemScope(limit Limit) *systemScope {
 	return &systemScope{
-		resourceScope: newResourceScope(limit, nil),
+		resourceScope: newResourceScope(limit, nil, "system"),
 	}
 }
 
 func newTransientScope(limit Limit, system *systemScope) *transientScope {
 	return &transientScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}, "transient"),
 		system:        system,
 	}
 }
 
 func newServiceScope(name string, limit Limit, system *systemScope) *serviceScope {
 	return &serviceScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}, fmt.Sprintf("service.%s", name)),
 		name:          name,
 		system:        system,
 	}
@@ -278,7 +278,7 @@ func newServiceScope(name string, limit Limit, system *systemScope) *serviceScop
 
 func newProtocolScope(proto protocol.ID, limit Limit, system *systemScope) *protocolScope {
 	return &protocolScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}, fmt.Sprintf("protocol.%s", proto)),
 		proto:         proto,
 		system:        system,
 	}
@@ -286,7 +286,7 @@ func newProtocolScope(proto protocol.ID, limit Limit, system *systemScope) *prot
 
 func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 	return &peerScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("peer.%s", p)),
 		peer:          p,
 		rcmgr:         rcmgr,
 	}
@@ -294,7 +294,7 @@ func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 
 func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager) *connectionScope {
 	return &connectionScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope}, "connection"),
 		dir:           dir,
 		usefd:         usefd,
 		rcmgr:         rcmgr,
@@ -303,7 +303,7 @@ func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *r
 
 func newStreamScope(dir network.Direction, limit Limit, peer *peerScope) *streamScope {
 	return &streamScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{peer.resourceScope, peer.rcmgr.transient.resourceScope, peer.rcmgr.system.resourceScope}),
+		resourceScope: newResourceScope(limit, []*resourceScope{peer.resourceScope, peer.rcmgr.transient.resourceScope, peer.rcmgr.system.resourceScope}, "stream"),
 		dir:           dir,
 		rcmgr:         peer.rcmgr,
 		peer:          peer,
