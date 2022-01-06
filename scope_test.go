@@ -43,6 +43,7 @@ func TestResources(t *testing.T) {
 
 	checkResources(t, &rc, network.ScopeStat{})
 
+	// test checkMemory
 	if err := rc.checkMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
@@ -63,6 +64,31 @@ func TestResources(t *testing.T) {
 		t.Fatal("expected memory check to fail")
 	}
 
+	if err := rc.checkMemory(1024, network.ReservationPriorityLow); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := rc.checkMemory(2048, network.ReservationPriorityLow); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+
+	if err := rc.checkMemory(2048, network.ReservationPriorityMedium); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := rc.checkMemory(3072, network.ReservationPriorityMedium); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+
+	if err := rc.checkMemory(3072, network.ReservationPriorityHigh); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := rc.checkMemory(3584, network.ReservationPriorityHigh); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+
+	// test reserveMemory
 	if err := rc.reserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
@@ -99,11 +125,50 @@ func TestResources(t *testing.T) {
 	rc.releaseMemory(3072)
 	checkResources(t, &rc, network.ScopeStat{})
 
+	if err := rc.reserveMemory(1024, network.ReservationPriorityLow); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 1024})
+
+	if err := rc.reserveMemory(1024, network.ReservationPriorityLow); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 1024})
+
+	if err := rc.reserveMemory(1024, network.ReservationPriorityMedium); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 2048})
+
+	if err := rc.reserveMemory(1024, network.ReservationPriorityMedium); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 2048})
+
+	if err := rc.reserveMemory(1024, network.ReservationPriorityHigh); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 3072})
+
+	if err := rc.reserveMemory(512, network.ReservationPriorityHigh); err == nil {
+		t.Fatal("expected memory check to fail")
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 3072})
+
+	if err := rc.reserveMemory(512, network.ReservationPriorityAlways); err != nil {
+		t.Fatal(err)
+	}
+	checkResources(t, &rc, network.ScopeStat{Memory: 3584})
+
+	rc.releaseMemory(3584)
+	checkResources(t, &rc, network.ScopeStat{})
+
 	if err := rc.addStream(network.DirInbound); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{NumStreamsInbound: 1})
 
+	// test addStream
 	if err := rc.addStream(network.DirInbound); err == nil {
 		t.Fatal("expected addStream to fail")
 	}
@@ -125,6 +190,7 @@ func TestResources(t *testing.T) {
 	rc.removeStream(network.DirOutbound)
 	checkResources(t, &rc, network.ScopeStat{})
 
+	// test addConn
 	if err := rc.addConn(network.DirInbound, false); err != nil {
 		t.Fatal(err)
 	}
