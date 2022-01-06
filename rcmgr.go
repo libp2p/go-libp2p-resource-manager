@@ -339,7 +339,7 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 
 	// juggle resources from transient scope to peer scope
 	stat := s.resourceScope.rc.stat()
-	if _, err := s.peer.ReserveForChild(stat); err != nil {
+	if err := s.peer.ReserveForChild(stat); err != nil {
 		s.peer.DecRef()
 		s.peer = nil
 		return err
@@ -376,7 +376,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 
 	// juggle resources from transient scope to protocol scope
 	stat := s.resourceScope.rc.stat()
-	if _, err := s.proto.ReserveForChild(stat); err != nil {
+	if err := s.proto.ReserveForChild(stat); err != nil {
 		s.proto.DecRef()
 		s.proto = nil
 		return err
@@ -416,7 +416,7 @@ func (s *streamScope) SetService(svc string) error {
 	s.svc = s.rcmgr.getServiceScope(svc)
 
 	// reserve resources in service
-	if _, err := s.svc.ReserveForChild(s.resourceScope.rc.stat()); err != nil {
+	if err := s.svc.ReserveForChild(s.resourceScope.rc.stat()); err != nil {
 		s.svc.DecRef()
 		s.svc = nil
 		return err
