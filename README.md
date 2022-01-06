@@ -10,7 +10,8 @@ accounting for multiple levels of resource constraints.
 ## Design Considerations
 
 - The Resource Manager must account for basic resource usage at all
-  levels of the stack, from the internals to the application.
+  levels of the stack, from the internals to application components
+  that use the network facilities of libp2p.
 - Basic resources include memory, streams, connections, and file
   descriptors. These account for both space and time used by
   the stack, as each resource has a direct effect on the system
@@ -175,6 +176,11 @@ The peer scope accounts for resource usage by an individual peer. This
 constrains connections and streams and limits the blast radius of
 resource consumption by a single remote peer.
 
+This ensures that no single peer can use more resources than allowed
+by the peer limits. Every peer has a default limit, but the programmer
+may raise (or lower) limits for specific peers.
+
+
 ### Connection Scopes
 
 The connection scope is delimited to the duration of a connection and
@@ -217,6 +223,115 @@ multiresolution and aggregate resource accounting.  As such, we have
 limits for the system and transient scopes, default and specific
 limits for services, protocols, and peers, and limits for connections
 and streams.
+
+## Examples
+
+Here we consider some concrete examples that can ellucidate the abstract
+design as described so far.
+
+### Stream Lifetime
+
+Let's consider a stream and the limits that apply to it.
+When the stream scope is first opened, it is created by calling
+`ResourceManager.OpenStream`.
+
+Initially the stream is constrained by:
+- the system scope, where global hard limits apply.
+- the transient scope, where unnegotiated streams live.
+- the peer scope, where the limits for the peer at the other end of the stream
+  apply.
+
+Once the protocol has been neogiatated, the protcol is set by calling
+`StreamManagementScope.SetProtocol`. The constraint from the
+transient scope is removed and the stream is now constrained by the
+protocol instead.
+
+More specifically, the following constraints apply:
+- the system scope, where global hard limits apply.
+- the peer scope, where the limits for the peer at the other end of the stream
+  apply.
+- the protocol scope, where the limits of the specific protocol used apply.
+
+The existence of the protocol limit allows us to implicitly constrain
+streams for services that have not been ported to the resource manager
+yet.  Once the programmer attaches a stream to a service by calling
+`StreamScope.SetService`, the protocol limits are removed and the
+stream is now constrained by the service limits.
+
+More specifically the following constraints apply:
+- the system scope, where global hard limits apply.
+- the peer scope, where the limits for the peer at the other end of the stream
+  apply.
+- the service scope, where the limits of the specific service owning the stream apply.
+
+
+The resource transfer happens in the `SetProtocol` and `SetService`
+gives the opportunity to the resource manager to gate the streams. If
+the transfer results in exceeding the scope limits, then a error
+indicating "resource limit exceeded" is returned. The wrapped error
+includes the name of the scope rejecting the resource acquisition to
+aid understanding of applicable limits.  Note that the (wrapped) error
+implements `net.Error` and is marked as temporary, so that the
+programmer can handle by backoff retry.
+
+### Default Limits
+
+The provided default static limiters apply the following limits, where
+memoryCap is provided by the programmer, either as a fixed number (in
+bytes) or a fraction of total system memory:
+```
+DefaultSystemBaseLimit:
+ StreamsInbound:  4096,
+ StreamsOutbound: 16384,
+ ConnsInbound:    256,
+ ConnsOutbound:   512,
+ FD:              512,
+
+DefaultTransientBaseLimit:
+ StreamsInbound:  128,
+ StreamsOutbound: 512,
+ ConnsInbound:    32,
+ ConnsOutbound:   128,
+ FD:              128,
+
+DefaultProtocolBaseLimit:
+ StreamsInbound:  1024,
+ StreamsOutbound: 4096,
+
+DefaultServiceBaseLimit:
+ StreamsInbound:  2048,
+ StreamsOutbound: 8192,
+
+system:
+ Memory:    memoryCap
+ BaseLimit: DefaultSystemBaseLimit
+
+transient:
+ Memory:    memoryCap / 16
+ BaseLimit: DefaultTransientBaseLimit
+
+svc =
+ Memory:    memoryCap / 2
+ BaseLimit: DefaultServiceBaseLimit
+
+proto:
+ Memory:    memoryCap / 4
+ BaseLimit: DefaultProtocolBaseLimit
+
+peer:
+ Memory:    memoryCap / 16
+		BaseLimit: DefaultPeerBaseLimit(),
+
+conn:
+ Memory:    16 << 20,
+
+stream:
+ Memory:    16 << 20,
+```
+
+We also provide a dynamic limiter which uses the same base limits, but
+the memory limit is dynamically computed at each memory reservation check
+based on free memory.
 
 ## Implementation Notes
 
