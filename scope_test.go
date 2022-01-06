@@ -29,13 +29,6 @@ func checkResources(t *testing.T, rc *resources, st network.ScopeStat) {
 	}
 }
 
-func checkStatus(t *testing.T, expected, status network.MemoryStatus) {
-	t.Helper()
-	if status != expected {
-		t.Fatalf("expected memory status %d but got %d", expected, status)
-	}
-}
-
 func TestResources(t *testing.T) {
 	rc := resources{limit: &StaticLimit{
 		Memory: 4096,
@@ -50,58 +43,47 @@ func TestResources(t *testing.T) {
 
 	checkResources(t, &rc, network.ScopeStat{})
 
-	var status network.MemoryStatus
-	var err error
-
-	if status, err = rc.checkMemory(1024); err != nil {
+	if err := rc.checkMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
-	checkStatus(t, network.MemoryStatusOK, status)
 
-	if status, err = rc.checkMemory(2048); err != nil {
+	if err := rc.checkMemory(2048, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
-	checkStatus(t, network.MemoryStatusOK, status)
 
-	if status, err = rc.checkMemory(3072); err != nil {
+	if err := rc.checkMemory(3072, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
-	checkStatus(t, network.MemoryStatusCaution, status)
 
-	if status, err = rc.checkMemory(4096); err != nil {
+	if err := rc.checkMemory(4096, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
-	checkStatus(t, network.MemoryStatusCritical, status)
 
-	if _, err := rc.checkMemory(8192); err == nil {
+	if err := rc.checkMemory(8192, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected memory check to fail")
 	}
 
-	if status, err = rc.reserveMemory(1024); err != nil {
+	if err := rc.reserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 1024})
-	checkStatus(t, network.MemoryStatusOK, status)
 
-	if status, err = rc.reserveMemory(1024); err != nil {
+	if err := rc.reserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 2048})
-	checkStatus(t, network.MemoryStatusOK, status)
 
-	if status, err = rc.reserveMemory(1024); err != nil {
+	if err := rc.reserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 3072})
-	checkStatus(t, network.MemoryStatusCaution, status)
 
-	if status, err = rc.reserveMemory(512); err != nil {
+	if err := rc.reserveMemory(512, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 3584})
-	checkStatus(t, network.MemoryStatusCritical, status)
 
-	if _, err := rc.reserveMemory(4096); err == nil {
+	if err := rc.reserveMemory(4096, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected memory reservation to fail")
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 3584})
@@ -109,11 +91,10 @@ func TestResources(t *testing.T) {
 	rc.releaseMemory(2560)
 	checkResources(t, &rc, network.ScopeStat{Memory: 1024})
 
-	if status, err = rc.reserveMemory(2048); err != nil {
+	if err := rc.reserveMemory(2048, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{Memory: 3072})
-	checkStatus(t, network.MemoryStatusCaution, status)
 
 	rc.releaseMemory(3072)
 	checkResources(t, &rc, network.ScopeStat{})
@@ -212,34 +193,27 @@ func TestResourceScopeSimple(t *testing.T) {
 }
 
 func testResourceScopeBasic(t *testing.T, s *resourceScope) {
-	var status network.MemoryStatus
-	var err error
-
-	if status, err = s.ReserveMemory(2048); err != nil {
+	if err := s.ReserveMemory(2048, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 2048})
-	checkStatus(t, network.MemoryStatusOK, status)
 
-	if status, err = s.ReserveMemory(1024); err != nil {
+	if err := s.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 3072})
-	checkStatus(t, network.MemoryStatusCaution, status)
 
-	if status, err = s.ReserveMemory(512); err != nil {
+	if err := s.ReserveMemory(512, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 3584})
-	checkStatus(t, network.MemoryStatusCritical, status)
 
-	if status, err = s.ReserveMemory(512); err != nil {
+	if err := s.ReserveMemory(512, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
-	checkStatus(t, network.MemoryStatusCritical, status)
 
-	if _, err := s.ReserveMemory(1024); err == nil {
+	if err := s.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
@@ -337,7 +311,7 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 	checkResources(t, &s.rc, network.ScopeStat{})
 
 	// check constraint propagation
-	if _, err := txn.ReserveMemory(4096); err != nil {
+	if err := txn.ReserveMemory(4096, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
@@ -373,7 +347,7 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := txn2.ReserveMemory(4096); err != nil {
+	if err := txn2.ReserveMemory(4096, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn2.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
@@ -382,7 +356,7 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 
 	txn1.Done()
 	checkResources(t, &s.rc, network.ScopeStat{})
-	if _, err := txn2.ReserveMemory(4096); err == nil {
+	if err := txn2.ReserveMemory(4096, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
 
@@ -430,14 +404,14 @@ func TestResourceScopeTxnTree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := txn3.ReserveMemory(1024); err != nil {
+	if err := txn3.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn3.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 1024})
 
-	if _, err := txn4.ReserveMemory(1024); err != nil {
+	if err := txn4.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn4.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
@@ -446,7 +420,7 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 2048})
 
-	if _, err := txn5.ReserveMemory(1024); err != nil {
+	if err := txn5.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
@@ -456,7 +430,7 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 3072})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 3072})
 
-	if _, err := txn1.ReserveMemory(1024); err != nil {
+	if err := txn1.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
@@ -466,16 +440,16 @@ func TestResourceScopeTxnTree(t *testing.T) {
 	checkResources(t, &txn1.(*resourceScope).rc, network.ScopeStat{Memory: 4096})
 	checkResources(t, &s.rc, network.ScopeStat{Memory: 4096})
 
-	if _, err := txn5.ReserveMemory(1024); err == nil {
+	if err := txn5.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	if _, err := txn4.ReserveMemory(1024); err == nil {
+	if err := txn4.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	if _, err := txn3.ReserveMemory(1024); err == nil {
+	if err := txn3.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	if _, err := txn2.ReserveMemory(1024); err == nil {
+	if err := txn2.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
 	checkResources(t, &txn5.(*resourceScope).rc, network.ScopeStat{Memory: 1024})
@@ -579,7 +553,7 @@ func TestResourceScopeDAG(t *testing.T) {
 		[]*resourceScope{s3, s1},
 	)
 
-	if _, err := s4.ReserveMemory(1024); err != nil {
+	if err := s4.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{})
@@ -589,7 +563,7 @@ func TestResourceScopeDAG(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 1024})
 
-	if _, err := s5.ReserveMemory(1024); err != nil {
+	if err := s5.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{})
@@ -599,7 +573,7 @@ func TestResourceScopeDAG(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 2048})
 
-	if _, err := s6.ReserveMemory(1024); err != nil {
+	if err := s6.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{Memory: 1024})
@@ -609,13 +583,13 @@ func TestResourceScopeDAG(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 3072})
 
-	if _, err := s4.ReserveMemory(1024); err == nil {
+	if err := s4.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expcted ReserveMemory to fail")
 	}
-	if _, err := s5.ReserveMemory(1024); err == nil {
+	if err := s5.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expcted ReserveMemory to fail")
 	}
-	if _, err := s6.ReserveMemory(1024); err == nil {
+	if err := s6.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expcted ReserveMemory to fail")
 	}
 
@@ -1064,7 +1038,7 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := txn4.ReserveMemory(1024); err != nil {
+	if err := txn4.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s4.rc, network.ScopeStat{Memory: 1024})
@@ -1072,7 +1046,7 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 1024})
 
-	if _, err := txn5.ReserveMemory(1024); err != nil {
+	if err := txn5.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s5.rc, network.ScopeStat{Memory: 1024})
@@ -1081,7 +1055,7 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 2048})
 
-	if _, err := txn6.ReserveMemory(1024); err != nil {
+	if err := txn6.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{Memory: 1024})
@@ -1091,7 +1065,7 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 2048})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 3072})
 
-	if _, err := txn4.ReserveMemory(4096); err != nil {
+	if err := txn4.ReserveMemory(4096, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{Memory: 1024})
@@ -1101,13 +1075,13 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 2048 + 4096})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 3072 + 4096})
 
-	if _, err := txn4.ReserveMemory(1024); err == nil {
+	if err := txn4.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	if _, err := txn5.ReserveMemory(1024); err == nil {
+	if err := txn5.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
-	if _, err := txn6.ReserveMemory(1024); err == nil {
+	if err := txn6.ReserveMemory(1024, network.ReservationPriorityAlways); err == nil {
 		t.Fatal("expected ReserveMemory to fail")
 	}
 	checkResources(t, &s6.rc, network.ScopeStat{Memory: 1024})
@@ -1126,10 +1100,10 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	checkResources(t, &s2.rc, network.ScopeStat{Memory: 1024})
 	checkResources(t, &s1.rc, network.ScopeStat{Memory: 2048})
 
-	if _, err := txn5.ReserveMemory(1024); err != nil {
+	if err := txn5.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := txn6.ReserveMemory(1024); err != nil {
+	if err := txn6.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
 		t.Fatal(err)
 	}
 
