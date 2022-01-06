@@ -1,4 +1,5 @@
 //go:build cgo && !ios
+// +build cgo,!ios
 
 package rcmgr
 
