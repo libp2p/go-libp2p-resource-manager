@@ -320,7 +320,7 @@ proto:
 
 peer:
  Memory:    memoryCap / 16
-		BaseLimit: DefaultPeerBaseLimit(),
+ BaseLimit: DefaultPeerBaseLimit
 
 conn:
  Memory:    16 << 20,
