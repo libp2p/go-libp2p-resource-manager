@@ -38,6 +38,46 @@ func (l *DynamicLimit) GetMemoryLimit() int64 {
 	return limit
 }
 
+func (l *DynamicLimit) WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit {
+	r := new(DynamicLimit)
+	*r = *l
+
+	r.MemoryFraction *= memFraction
+	r.MinMemory = minMemory
+	r.MaxMemory = maxMemory
+
+	return r
+}
+
+func (l *DynamicLimit) WithStreamLimit(numStreamsIn, numStreamsOut int) Limit {
+	r := new(DynamicLimit)
+	*r = *l
+
+	r.BaseLimit.StreamsInbound = numStreamsIn
+	r.BaseLimit.StreamsOutbound = numStreamsOut
+
+	return r
+}
+
+func (l *DynamicLimit) WithConnLimit(numConnsIn, numConnsOut int) Limit {
+	r := new(DynamicLimit)
+	*r = *l
+
+	r.BaseLimit.ConnsInbound = numConnsIn
+	r.BaseLimit.ConnsOutbound = numConnsOut
+
+	return r
+}
+
+func (l *DynamicLimit) WithFDLimit(numFD int) Limit {
+	r := new(DynamicLimit)
+	*r = *l
+
+	r.BaseLimit.FD = numFD
+
+	return r
+}
+
 // NewDynamicLimiter creates a limiter with default limits and a memory cap dynamically computed
 // based on available memory. minMemory and maxMemory specify the system memory bounds,
 // while memFraction specifies the fraction of available memory available for the system, within

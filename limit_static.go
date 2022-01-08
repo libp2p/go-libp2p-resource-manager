@@ -16,6 +16,49 @@ func (l *StaticLimit) GetMemoryLimit() int64 {
 	return l.Memory
 }
 
+func (l *StaticLimit) WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit {
+	r := new(StaticLimit)
+	*r = *l
+
+	r.Memory = int64(memFraction * float64(r.Memory))
+	if r.Memory < minMemory {
+		r.Memory = minMemory
+	} else if r.Memory > maxMemory {
+		r.Memory = maxMemory
+	}
+
+	return r
+}
+
+func (l *StaticLimit) WithStreamLimit(numStreamsIn, numStreamsOut int) Limit {
+	r := new(StaticLimit)
+	*r = *l
+
+	r.BaseLimit.StreamsInbound = numStreamsIn
+	r.BaseLimit.StreamsOutbound = numStreamsOut
+
+	return r
+}
+
+func (l *StaticLimit) WithConnLimit(numConnsIn, numConnsOut int) Limit {
+	r := new(StaticLimit)
+	*r = *l
+
+	r.BaseLimit.ConnsInbound = numConnsIn
+	r.BaseLimit.ConnsOutbound = numConnsOut
+
+	return r
+}
+
+func (l *StaticLimit) WithFDLimit(numFD int) Limit {
+	r := new(StaticLimit)
+	*r = *l
+
+	r.BaseLimit.FD = numFD
+
+	return r
+}
+
 // NewStaticLimiter creates a limiter with default base limits and a system memory cap specified as
 // a fraction of total system memory. The assigned memory will not be less than minMemory or more
 // than maxMemory.
