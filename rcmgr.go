@@ -261,7 +261,11 @@ func (r *resourceManager) gc() {
 	for _, s := range r.svc {
 		s.Lock()
 		for _, p := range deadPeers {
-			delete(s.peers, p)
+			ps, ok := s.peers[p]
+			if ok {
+				ps.Done()
+				delete(s.peers, p)
+			}
 		}
 		s.Unlock()
 	}

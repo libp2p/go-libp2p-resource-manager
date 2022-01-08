@@ -14,6 +14,7 @@ func TestResourceManager(t *testing.T) {
 	protoA := protocol.ID("/A")
 	protoB := protocol.ID("/B")
 	svcA := "A.svc"
+	svcB := "B.svc"
 	mgr := NewResourceManager(
 		&BasicLimiter{
 			SystemLimits: &StaticLimit{
@@ -55,6 +56,25 @@ func TestResourceManager(t *testing.T) {
 						ConnsInbound:    2,
 						ConnsOutbound:   2,
 						FD:              1,
+					},
+				},
+				svcB: &StaticLimit{
+					Memory: 8192,
+					BaseLimit: BaseLimit{
+						StreamsInbound:  2,
+						StreamsOutbound: 2,
+						ConnsInbound:    2,
+						ConnsOutbound:   2,
+						FD:              1,
+					},
+				},
+			},
+			ServicePeerLimits: map[string]Limit{
+				svcB: &StaticLimit{
+					Memory: 8192,
+					BaseLimit: BaseLimit{
+						StreamsInbound:  1,
+						StreamsOutbound: 1,
 					},
 				},
 			},
@@ -684,6 +704,150 @@ func TestResourceManager(t *testing.T) {
 	}
 	if lenPeer != 0 {
 		t.Fatal("perrs were not gc'ed")
+	}
+
+	// check that per service peer scopes work as intended
+	stream1, err = mgr.OpenStream(peerA, network.DirInbound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkPeer(peerA, func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 5)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+
+	if err := stream1.SetProtocol(protoA); err != nil {
+		t.Fatal(err)
+	}
+
+	checkPeer(peerA, func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkProtocol(protoA, func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 6)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
+	})
+
+	stream2, err = mgr.OpenStream(peerA, network.DirInbound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkPeer(peerA, func(s *resourceScope) {
+		checkRefCnt(s, 3)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 7)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+
+	if err := stream2.SetProtocol(protoA); err != nil {
+		t.Fatal(err)
+	}
+
+	checkPeer(peerA, func(s *resourceScope) {
+		checkRefCnt(s, 3)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkProtocol(protoA, func(s *resourceScope) {
+		checkRefCnt(s, 3)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 7)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
+	})
+
+	if err := stream1.SetService(svcB); err != nil {
+		t.Fatal(err)
+	}
+
+	checkPeer(peerA, func(s *resourceScope) {
+		checkRefCnt(s, 3)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkService(svcB, func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkProtocol(protoA, func(s *resourceScope) {
+		checkRefCnt(s, 2)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+	})
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 8)
+		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 2})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
+	})
+
+	// now we should fail to set the service for stream2 to svcB because of the service peer limit
+	if err := stream2.SetService(svcB); err == nil {
+		t.Fatal("expected SetService to fail")
+	}
+
+	// now release resources and check interior gc of per service peer scopes
+	stream1.Done()
+	stream2.Done()
+
+	mgr.gc()
+
+	checkSystem(func(s *resourceScope) {
+		checkRefCnt(s, 4)
+		checkResources(t, &s.rc, network.ScopeStat{})
+	})
+	checkTransient(func(s *resourceScope) {
+		checkRefCnt(s, 1)
+		checkResources(t, &s.rc, network.ScopeStat{})
+	})
+
+	mgr.mx.Lock()
+	lenProto = len(mgr.proto)
+	lenPeer = len(mgr.peer)
+	mgr.mx.Unlock()
+
+	svc := mgr.svc[svcB]
+	svc.Lock()
+	lenSvcPeer := len(svc.peers)
+	svc.Unlock()
+
+	if lenProto != 0 {
+		t.Fatal("protocols were not gc'ed")
+	}
+	if lenPeer != 0 {
+		t.Fatal("peers were not gc'ed")
+	}
+	if lenSvcPeer != 0 {
+		t.Fatal("service peers were not gc'ed")
 	}
 
 }
