@@ -36,6 +36,7 @@ type Limiter interface {
 	GetSystemLimits() Limit
 	GetTransientLimits() Limit
 	GetServiceLimits(svc string) Limit
+	GetServicePeerLimits(svc string) Limit
 	GetProtocolLimits(proto protocol.ID) Limit
 	GetPeerLimits(p peer.ID) Limit
 	GetStreamLimits(p peer.ID) Limit
@@ -48,6 +49,7 @@ type BasicLimiter struct {
 	TransientLimits       Limit
 	DefaultServiceLimits  Limit
 	ServiceLimits         map[string]Limit
+	SercicePeerLimits     map[string]Limit
 	DefaultProtocolLimits Limit
 	ProtocolLimits        map[protocol.ID]Limit
 	DefaultPeerLimits     Limit
@@ -101,6 +103,10 @@ func (l *BasicLimiter) GetServiceLimits(svc string) Limit {
 		return l.DefaultServiceLimits
 	}
 	return sl
+}
+
+func (l *BasicLimiter) GetServicePeerLimits(svc string) Limit {
+	return l.SercicePeerLimits[svc]
 }
 
 func (l *BasicLimiter) GetProtocolLimits(proto protocol.ID) Limit {
