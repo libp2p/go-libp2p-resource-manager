@@ -8,10 +8,27 @@ import (
 
 // Limit is an object that specifies basic resource limits.
 type Limit interface {
+	// GetMemoryLimit returns the (current) memory limit.
 	GetMemoryLimit() int64
+	// GetStreamLimit returns the stream limit, for inbound or outbound streams.
 	GetStreamLimit(network.Direction) int
+	// GetConnLimit returns the connection limit, for inbound or outbound connections.
 	GetConnLimit(network.Direction) int
+	// GetFDLimit returns the file descriptor limit.
 	GetFDLimit() int
+
+	// WithMemoryLimit creates a copy of this limit object, with memory limit adjusted to
+	// the specified memFraction of its current value, bounded by minMemory and maxMemory.
+	WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit
+	// WithStreamLimit creates a copy of this limit object, with stream limits adjusted
+	// as specified.
+	WithStreamLimit(numStreamsIn, numStreamsOut int) Limit
+	// WithConnLimit creates a copy of this limit object, with connetion limits adjusted
+	// as specified.
+	WithConnLimit(numConnsIn, numConnsOut int) Limit
+	// WithFDLimit creates a copy of this limit object, with file descriptor limits adjusted
+	// as specified
+	WithFDLimit(numFD int) Limit
 }
 
 // Limiter is the interface for providing limits to the resource manager.
