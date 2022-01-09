@@ -1,10 +1,9 @@
-//go:build cgo && !ios
-// +build cgo,!ios
-
 package rcmgr
 
 import (
-	"github.com/elastic/gosigar"
+	"runtime"
+
+	"github.com/pbnjay/memory"
 )
 
 // DynamicLimit is a limit with dynamic memory values, based on available (free) memory
@@ -23,12 +22,17 @@ type DynamicLimit struct {
 var _ Limit = (*DynamicLimit)(nil)
 
 func (l *DynamicLimit) GetMemoryLimit() int64 {
-	var mem gosigar.Mem
-	if err := mem.Get(); err != nil {
-		panic(err)
-	}
+	freemem := memory.FreeMemory()
 
-	limit := int64(float64(mem.ActualFree) * l.MemoryFraction)
+	// account for memory retained by the runtime that is actually free
+	// HeapInuse - HeapAlloc is the memory available in allocator spans
+	// HeapIdle - HeapReleased is memory held by the runtime that could be returned to the OS
+	var memstat runtime.MemStats
+	runtime.ReadMemStats(&memstat)
+
+	freemem += (memstat.HeapInuse - memstat.HeapAlloc) + (memstat.HeapIdle - memstat.HeapReleased)
+
+	limit := int64(float64(freemem) * l.MemoryFraction)
 	if limit < l.MinMemory {
 		limit = l.MinMemory
 	} else if limit > l.MaxMemory {
