@@ -84,11 +84,11 @@ func newDefaultStaticLimiter(memoryCap int64) *BasicLimiter {
 		BaseLimit: DefaultSystemBaseLimit(),
 	}
 	transient := &StaticLimit{
-		Memory:    memoryCap / 16,
+		Memory:    memoryCap / 4,
 		BaseLimit: DefaultTransientBaseLimit(),
 	}
 	svc := &StaticLimit{
-		Memory:    memoryCap / 2,
+		Memory:    memoryCap / 4,
 		BaseLimit: DefaultServiceBaseLimit(),
 	}
 	proto := &StaticLimit{
@@ -96,7 +96,7 @@ func newDefaultStaticLimiter(memoryCap int64) *BasicLimiter {
 		BaseLimit: DefaultProtocolBaseLimit(),
 	}
 	peer := &StaticLimit{
-		Memory:    memoryCap / 16,
+		Memory:    memoryCap / 4,
 		BaseLimit: DefaultPeerBaseLimit(),
 	}
 	conn := &StaticLimit{

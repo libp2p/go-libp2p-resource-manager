@@ -94,15 +94,15 @@ func NewDynamicLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLi
 		BaseLimit:      DefaultSystemBaseLimit(),
 	}
 	transient := &DynamicLimit{
-		MinMemory:      minMemory / 16,
-		MaxMemory:      maxMemory / 16,
-		MemoryFraction: memFraction / 16,
+		MinMemory:      minMemory / 4,
+		MaxMemory:      maxMemory / 4,
+		MemoryFraction: memFraction / 4,
 		BaseLimit:      DefaultTransientBaseLimit(),
 	}
 	svc := &DynamicLimit{
-		MinMemory:      minMemory / 2,
-		MaxMemory:      maxMemory / 2,
-		MemoryFraction: memFraction / 2,
+		MinMemory:      minMemory / 4,
+		MaxMemory:      maxMemory / 4,
+		MemoryFraction: memFraction / 4,
 		BaseLimit:      DefaultServiceBaseLimit(),
 	}
 	proto := &DynamicLimit{
@@ -112,9 +112,9 @@ func NewDynamicLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLi
 		BaseLimit:      DefaultProtocolBaseLimit(),
 	}
 	peer := &DynamicLimit{
-		MinMemory:      minMemory / 16,
-		MaxMemory:      maxMemory / 16,
-		MemoryFraction: memFraction / 16,
+		MinMemory:      minMemory / 4,
+		MaxMemory:      maxMemory / 4,
+		MemoryFraction: memFraction / 4,
 		BaseLimit:      DefaultPeerBaseLimit(),
 	}
 	conn := &StaticLimit{
