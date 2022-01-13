@@ -198,3 +198,14 @@ func StreamBaseLimit() BaseLimit {
 		StreamsOutbound: 1,
 	}
 }
+
+func memoryLimit(memoryCap int64, minMemory, maxMemory int64) int64 {
+	switch {
+	case memoryCap < minMemory:
+		return minMemory
+	case memoryCap > maxMemory:
+		return maxMemory
+	default:
+		return memoryCap
+	}
+}

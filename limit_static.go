@@ -63,13 +63,7 @@ func (l *StaticLimit) WithFDLimit(numFD int) Limit {
 // a fraction of total system memory. The assigned memory will not be less than minMemory or more
 // than maxMemory.
 func NewStaticLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
-	memoryCap := int64(float64(memory.TotalMemory()) * memFraction)
-	switch {
-	case memoryCap < minMemory:
-		memoryCap = minMemory
-	case memoryCap > maxMemory:
-		memoryCap = maxMemory
-	}
+	memoryCap := memoryLimit(int64(float64(memory.TotalMemory())*memFraction), minMemory, maxMemory)
 	return newDefaultStaticLimiter(memoryCap)
 }
 
@@ -84,23 +78,23 @@ func newDefaultStaticLimiter(memoryCap int64) *BasicLimiter {
 		BaseLimit: DefaultSystemBaseLimit(),
 	}
 	transient := &StaticLimit{
-		Memory:    memoryCap / 4,
+		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
 		BaseLimit: DefaultTransientBaseLimit(),
 	}
 	svc := &StaticLimit{
-		Memory:    memoryCap / 4,
+		Memory:    memoryLimit(memoryCap/4, 64<<20, 512<<20),
 		BaseLimit: DefaultServiceBaseLimit(),
 	}
 	proto := &StaticLimit{
-		Memory:    memoryCap / 4,
+		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
 		BaseLimit: DefaultProtocolBaseLimit(),
 	}
 	peer := &StaticLimit{
-		Memory:    memoryCap / 4,
+		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
 		BaseLimit: DefaultPeerBaseLimit(),
 	}
 	conn := &StaticLimit{
-		Memory:    16 << 20,
+		Memory:    1 << 20,
 		BaseLimit: ConnBaseLimit(),
 	}
 	stream := &StaticLimit{
