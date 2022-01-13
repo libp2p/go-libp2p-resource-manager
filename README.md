@@ -241,7 +241,7 @@ Initially the stream is constrained by:
 - the peer scope, where the limits for the peer at the other end of the stream
   apply.
 
-Once the protocol has been neogiatated, the protcol is set by calling
+Once the protocol has been negotiated, the protocol is set by calling
 `StreamManagementScope.SetProtocol`. The constraint from the
 transient scope is removed and the stream is now constrained by the
 protocol instead.
