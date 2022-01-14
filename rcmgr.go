@@ -208,7 +208,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamManagementScope, error) {
 	peer := r.getPeerScope(p)
 	stream := newStreamScope(dir, r.limits.GetStreamLimits(p), peer)
-	peer.DecRef() // we have the reference in constraints
+	peer.DecRef() // we have the reference in edges
 
 	err := stream.AddStream(dir)
 	if err != nil {
@@ -425,14 +425,14 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 	}
 
 	s.rcmgr.transient.ReleaseForChild(stat)
-	s.rcmgr.transient.DecRef() // removed from constraints
+	s.rcmgr.transient.DecRef() // removed from edges
 
-	// update constraints
-	constraints := []*resourceScope{
+	// update edges
+	edges := []*resourceScope{
 		s.peer.resourceScope,
 		s.rcmgr.system.resourceScope,
 	}
-	s.resourceScope.constraints = constraints
+	s.resourceScope.edges = edges
 
 	return nil
 }
@@ -472,16 +472,16 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 	}
 
 	s.rcmgr.transient.ReleaseForChild(stat)
-	s.rcmgr.transient.DecRef() // removed from constraints
+	s.rcmgr.transient.DecRef() // removed from edges
 
-	// update constraints
-	constraints := []*resourceScope{
+	// update edges
+	edges := []*resourceScope{
 		s.peer.resourceScope,
 		s.peerProtoScope,
 		s.proto.resourceScope,
 		s.rcmgr.system.resourceScope,
 	}
-	s.resourceScope.constraints = constraints
+	s.resourceScope.edges = edges
 
 	return nil
 }
@@ -524,8 +524,8 @@ func (s *streamScope) SetService(svc string) error {
 		return err
 	}
 
-	// update constraints
-	constraints := []*resourceScope{
+	// update edges
+	edges := []*resourceScope{
 		s.peer.resourceScope,
 		s.peerProtoScope,
 		s.peerSvcScope,
@@ -533,7 +533,7 @@ func (s *streamScope) SetService(svc string) error {
 		s.svc.resourceScope,
 		s.rcmgr.system.resourceScope,
 	}
-	s.resourceScope.constraints = constraints
+	s.resourceScope.edges = edges
 
 	return nil
 }
