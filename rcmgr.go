@@ -106,12 +106,20 @@ type streamScope struct {
 var _ network.StreamScope = (*streamScope)(nil)
 var _ network.StreamManagementScope = (*streamScope)(nil)
 
-func NewResourceManager(limits Limiter) network.ResourceManager {
+type Option func(*resourceManager) error
+
+func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager, error) {
 	r := &resourceManager{
 		limits: limits,
 		svc:    make(map[string]*serviceScope),
 		proto:  make(map[protocol.ID]*protocolScope),
 		peer:   make(map[peer.ID]*peerScope),
+	}
+
+	for _, opt := range opts {
+		if err := opt(r); err != nil {
+			return nil, err
+		}
 	}
 
 	r.system = newSystemScope(limits.GetSystemLimits())
@@ -124,7 +132,7 @@ func NewResourceManager(limits Limiter) network.ResourceManager {
 	r.wg.Add(1)
 	go r.background()
 
-	return r
+	return r, nil
 }
 
 func (r *resourceManager) ViewSystem(f func(network.ResourceScope) error) error {
