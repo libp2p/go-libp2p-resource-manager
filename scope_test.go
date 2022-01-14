@@ -368,7 +368,7 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 		nil, "test",
 	)
 
-	txn, err := s.BeginTransaction()
+	txn, err := s.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,12 +403,12 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 		nil, "test",
 	)
 
-	txn1, err := s.BeginTransaction()
+	txn1, err := s.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn2, err := txn1.BeginTransaction()
+	txn2, err := txn1.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,27 +445,27 @@ func TestResourceScopeTxnTree(t *testing.T) {
 		nil, "test",
 	)
 
-	txn1, err := s.BeginTransaction()
+	txn1, err := s.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn2, err := txn1.BeginTransaction()
+	txn2, err := txn1.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn3, err := txn1.BeginTransaction()
+	txn3, err := txn1.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn4, err := txn2.BeginTransaction()
+	txn4, err := txn2.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn5, err := txn2.BeginTransaction()
+	txn5, err := txn2.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1089,17 +1089,17 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 		[]*resourceScope{s3, s1}, "test",
 	)
 
-	txn4, err := s4.BeginTransaction()
+	txn4, err := s4.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn5, err := s5.BeginTransaction()
+	txn5, err := s5.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	txn6, err := s6.BeginTransaction()
+	txn6, err := s6.BeginSpan()
 	if err != nil {
 		t.Fatal(err)
 	}

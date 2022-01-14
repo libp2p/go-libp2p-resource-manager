@@ -21,10 +21,10 @@ type resources struct {
 // A resourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
 // (ie cannot call Done in the upstream node before the downstream node) and account for resources
 // using a linearized parent set.
-// A resourceScope can be a txn scope, where it has a specific owner; txn scopes create a tree rooted
+// A resourceScope can be a span scope, where it has a specific owner; span scopes create a tree rooted
 // at the owner (which can be a DAG scope) and can outlive their parents -- this is important because
-// txn scopes are the main *user* interface for memory management, and the user may call
-// Done in a txn scope after the system has closed the root of the txn tree in some background
+// span scopes are the main *user* interface for memory management, and the user may call
+// Done in a span scope after the system has closed the root of the span tree in some background
 // goroutine.
 // If we didn't make this distinction we would have a double release problem in that case.
 type resourceScope struct {
@@ -33,14 +33,14 @@ type resourceScope struct {
 	refCnt int
 
 	rc          resources
-	owner       *resourceScope   // set in transaction scopes, which define trees
+	owner       *resourceScope   // set in span scopes, which define trees
 	constraints []*resourceScope // set in DAG scopes, it's the linearized parent set
 
 	name string // for debugging purposes
 }
 
 var _ network.ResourceScope = (*resourceScope)(nil)
-var _ network.TransactionalScope = (*resourceScope)(nil)
+var _ network.ResourceScopeSpan = (*resourceScope)(nil)
 
 func newResourceScope(limit Limit, constraints []*resourceScope, name string) *resourceScope {
 	for _, cst := range constraints {
@@ -53,7 +53,7 @@ func newResourceScope(limit Limit, constraints []*resourceScope, name string) *r
 	}
 }
 
-func newTxnResourceScope(owner *resourceScope) *resourceScope {
+func newResourceScopeSpan(owner *resourceScope) *resourceScope {
 	return &resourceScope{
 		rc:    resources{limit: owner.rc.limit},
 		owner: owner,
@@ -539,7 +539,7 @@ func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 	}
 }
 
-func (s *resourceScope) BeginTransaction() (network.TransactionalScope, error) {
+func (s *resourceScope) BeginSpan() (network.ResourceScopeSpan, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -548,7 +548,7 @@ func (s *resourceScope) BeginTransaction() (network.TransactionalScope, error) {
 	}
 
 	s.refCnt++
-	return newTxnResourceScope(s), nil
+	return newResourceScopeSpan(s), nil
 }
 
 func (s *resourceScope) Done() {
