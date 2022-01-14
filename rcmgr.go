@@ -59,6 +59,8 @@ type protocolScope struct {
 
 	proto protocol.ID
 	rcmgr *resourceManager
+
+	peers map[peer.ID]*resourceScope
 }
 
 var _ network.ProtocolScope = (*protocolScope)(nil)
@@ -92,6 +94,9 @@ type streamScope struct {
 	peer  *peerScope
 	svc   *serviceScope
 	proto *protocolScope
+
+	peerProtoScope *resourceScope
+	peerSvcScope   *resourceScope
 }
 
 var _ network.StreamScope = (*streamScope)(nil)
@@ -269,6 +274,18 @@ func (r *resourceManager) gc() {
 		}
 		s.Unlock()
 	}
+
+	for _, s := range r.proto {
+		s.Lock()
+		for _, p := range deadPeers {
+			ps, ok := s.peers[p]
+			if ok {
+				ps.Done()
+				delete(s.peers, p)
+			}
+		}
+		s.Unlock()
+	}
 }
 
 func newSystemScope(limit Limit) *systemScope {
@@ -341,9 +358,6 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 	}
 
 	l := s.rcmgr.limits.GetServicePeerLimits(s.name)
-	if l == nil {
-		return nil
-	}
 
 	if s.peers == nil {
 		s.peers = make(map[peer.ID]*resourceScope)
@@ -358,6 +372,29 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 
 func (s *protocolScope) Protocol() protocol.ID {
 	return s.proto
+}
+
+func (s *protocolScope) getPeerScope(p peer.ID) *resourceScope {
+	s.Lock()
+	defer s.Unlock()
+
+	ps, ok := s.peers[p]
+	if ok {
+		ps.IncRef()
+		return ps
+	}
+
+	l := s.rcmgr.limits.GetProtocolPeerLimits(s.proto)
+
+	if s.peers == nil {
+		s.peers = make(map[peer.ID]*resourceScope)
+	}
+
+	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer", s.name))
+	s.peers[p] = ps
+
+	ps.IncRef()
+	return ps
 }
 
 func (s *peerScope) Peer() peer.ID {
@@ -424,12 +461,23 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 		return err
 	}
 
+	s.peerProtoScope = s.proto.getPeerScope(s.peer.peer)
+	if err := s.peerProtoScope.ReserveForChild(stat); err != nil {
+		s.proto.ReleaseForChild(stat)
+		s.proto.DecRef()
+		s.proto = nil
+		s.peerProtoScope.DecRef()
+		s.peerProtoScope = nil
+		return err
+	}
+
 	s.rcmgr.transient.ReleaseForChild(stat)
 	s.rcmgr.transient.DecRef() // removed from constraints
 
 	// update constraints
 	constraints := []*resourceScope{
 		s.peer.resourceScope,
+		s.peerProtoScope,
 		s.proto.resourceScope,
 		s.rcmgr.system.resourceScope,
 	}
@@ -466,32 +514,25 @@ func (s *streamScope) SetService(svc string) error {
 	}
 
 	// get the per peer service scope constraint, if any
-	peerSvcScope := s.svc.getPeerScope(s.peer.peer)
-	if peerSvcScope != nil {
-		if err := peerSvcScope.ReserveForChild(stat); err != nil {
-			s.svc.ReleaseForChild(stat)
-			s.svc.DecRef()
-			s.svc = nil
-			peerSvcScope.DecRef()
-			return err
-		}
+	s.peerSvcScope = s.svc.getPeerScope(s.peer.peer)
+	if err := s.peerSvcScope.ReserveForChild(stat); err != nil {
+		s.svc.ReleaseForChild(stat)
+		s.svc.DecRef()
+		s.svc = nil
+		s.peerSvcScope.DecRef()
+		s.peerSvcScope = nil
+		return err
 	}
-
-	// remove resources from the protocol
-	s.proto.ReleaseForChild(stat)
-	s.proto.DecRef() // removed from constraints
 
 	// update constraints
 	constraints := []*resourceScope{
 		s.peer.resourceScope,
+		s.peerProtoScope,
+		s.peerSvcScope,
+		s.proto.resourceScope,
+		s.svc.resourceScope,
+		s.rcmgr.system.resourceScope,
 	}
-
-	if peerSvcScope != nil {
-		constraints = append(constraints, peerSvcScope)
-	}
-
-	constraints = append(constraints, s.svc.resourceScope, s.rcmgr.system.resourceScope)
-
 	s.resourceScope.constraints = constraints
 
 	return nil

@@ -38,6 +38,7 @@ type Limiter interface {
 	GetServiceLimits(svc string) Limit
 	GetServicePeerLimits(svc string) Limit
 	GetProtocolLimits(proto protocol.ID) Limit
+	GetProtocolPeerLimits(proto protocol.ID) Limit
 	GetPeerLimits(p peer.ID) Limit
 	GetStreamLimits(p peer.ID) Limit
 	GetConnLimits() Limit
@@ -45,17 +46,20 @@ type Limiter interface {
 
 // BasicLimiter is a limiter with fixed limits.
 type BasicLimiter struct {
-	SystemLimits          Limit
-	TransientLimits       Limit
-	DefaultServiceLimits  Limit
-	ServiceLimits         map[string]Limit
-	ServicePeerLimits     map[string]Limit
-	DefaultProtocolLimits Limit
-	ProtocolLimits        map[protocol.ID]Limit
-	DefaultPeerLimits     Limit
-	PeerLimits            map[peer.ID]Limit
-	ConnLimits            Limit
-	StreamLimits          Limit
+	SystemLimits              Limit
+	TransientLimits           Limit
+	DefaultServiceLimits      Limit
+	DefaultServicePeerLimits  Limit
+	ServiceLimits             map[string]Limit
+	ServicePeerLimits         map[string]Limit
+	DefaultProtocolLimits     Limit
+	DefaultProtocolPeerLimits Limit
+	ProtocolLimits            map[protocol.ID]Limit
+	ProtocolPeerLimits        map[protocol.ID]Limit
+	DefaultPeerLimits         Limit
+	PeerLimits                map[peer.ID]Limit
+	ConnLimits                Limit
+	StreamLimits              Limit
 }
 
 var _ Limiter = (*BasicLimiter)(nil)
@@ -106,13 +110,25 @@ func (l *BasicLimiter) GetServiceLimits(svc string) Limit {
 }
 
 func (l *BasicLimiter) GetServicePeerLimits(svc string) Limit {
-	return l.ServicePeerLimits[svc]
+	pl, ok := l.ServicePeerLimits[svc]
+	if !ok {
+		return l.DefaultServicePeerLimits
+	}
+	return pl
 }
 
 func (l *BasicLimiter) GetProtocolLimits(proto protocol.ID) Limit {
 	pl, ok := l.ProtocolLimits[proto]
 	if !ok {
 		return l.DefaultProtocolLimits
+	}
+	return pl
+}
+
+func (l *BasicLimiter) GetProtocolPeerLimits(proto protocol.ID) Limit {
+	pl, ok := l.ProtocolPeerLimits[proto]
+	if !ok {
+		return l.DefaultProtocolPeerLimits
 	}
 	return pl
 }
@@ -163,11 +179,27 @@ func DefaultServiceBaseLimit() BaseLimit {
 	}
 }
 
+// DefaultServicePeerBaseLimit returns the default BaseLimit per peer for Service Scopes.
+func DefaultServicePeerBaseLimit() BaseLimit {
+	return BaseLimit{
+		StreamsInbound:  256,
+		StreamsOutbound: 512,
+	}
+}
+
 // DefaultProtocolBaseLimit returns the default BaseLimit for Protocol Scopes.
 func DefaultProtocolBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  1024,
 		StreamsOutbound: 4096,
+	}
+}
+
+// DefaultProtocolPeerBaseLimit returns the default BaseLimit per peer for Protocol Scopes.
+func DefaultProtocolPeerBaseLimit() BaseLimit {
+	return BaseLimit{
+		StreamsInbound:  128,
+		StreamsOutbound: 256,
 	}
 }
 
