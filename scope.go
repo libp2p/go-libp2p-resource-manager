@@ -89,7 +89,8 @@ func (rc *resources) releaseMemory(size int64) {
 
 	// sanity check for bugs upstream
 	if rc.memory < 0 {
-		panic("BUG: too much memory released")
+		log.Error("BUG: too much memory released")
+		rc.memory = 0
 	}
 }
 
@@ -125,8 +126,13 @@ func (rc *resources) removeStreams(incount, outcount int) {
 	rc.nstreamsIn -= incount
 	rc.nstreamsOut -= outcount
 
-	if rc.nstreamsIn < 0 || rc.nstreamsOut < 0 {
-		panic("BUG: too many streams released")
+	if rc.nstreamsIn < 0 {
+		log.Error("BUG: too many inbound streams released")
+		rc.nstreamsIn = 0
+	}
+	if rc.nstreamsOut < 0 {
+		log.Error("BUG: too many outbound streams released")
+		rc.nstreamsOut = 0
 	}
 }
 
@@ -178,11 +184,17 @@ func (rc *resources) removeConns(incount, outcount, fdcount int) {
 	rc.nconnsOut -= outcount
 	rc.nfd -= fdcount
 
-	if rc.nconnsIn < 0 || rc.nconnsOut < 0 {
-		panic("BUG: too many connections released")
+	if rc.nconnsIn < 0 {
+		log.Error("BUG: too many inbound connections released")
+		rc.nconnsIn = 0
+	}
+	if rc.nconnsOut < 0 {
+		log.Error("BUG: too many outbound connections released")
+		rc.nconnsOut = 0
 	}
 	if rc.nfd < 0 {
-		panic("BUG: too many file descriptors released")
+		log.Error("BUG: too many file descriptors released")
+		rc.nfd = 0
 	}
 }
 
