@@ -47,22 +47,24 @@ func (l *DynamicLimit) WithMemoryLimit(memFraction float64, minMemory, maxMemory
 	return r
 }
 
-func (l *DynamicLimit) WithStreamLimit(numStreamsIn, numStreamsOut int) Limit {
+func (l *DynamicLimit) WithStreamLimit(numStreamsIn, numStreamsOut, numStreams int) Limit {
 	r := new(DynamicLimit)
 	*r = *l
 
 	r.BaseLimit.StreamsInbound = numStreamsIn
 	r.BaseLimit.StreamsOutbound = numStreamsOut
+	r.BaseLimit.Streams = numStreams
 
 	return r
 }
 
-func (l *DynamicLimit) WithConnLimit(numConnsIn, numConnsOut int) Limit {
+func (l *DynamicLimit) WithConnLimit(numConnsIn, numConnsOut, numConns int) Limit {
 	r := new(DynamicLimit)
 	*r = *l
 
 	r.BaseLimit.ConnsInbound = numConnsIn
 	r.BaseLimit.ConnsOutbound = numConnsOut
+	r.BaseLimit.Conns = numConns
 
 	return r
 }

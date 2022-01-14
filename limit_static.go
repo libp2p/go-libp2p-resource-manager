@@ -30,22 +30,24 @@ func (l *StaticLimit) WithMemoryLimit(memFraction float64, minMemory, maxMemory 
 	return r
 }
 
-func (l *StaticLimit) WithStreamLimit(numStreamsIn, numStreamsOut int) Limit {
+func (l *StaticLimit) WithStreamLimit(numStreamsIn, numStreamsOut, numStreams int) Limit {
 	r := new(StaticLimit)
 	*r = *l
 
 	r.BaseLimit.StreamsInbound = numStreamsIn
 	r.BaseLimit.StreamsOutbound = numStreamsOut
+	r.BaseLimit.Streams = numStreams
 
 	return r
 }
 
-func (l *StaticLimit) WithConnLimit(numConnsIn, numConnsOut int) Limit {
+func (l *StaticLimit) WithConnLimit(numConnsIn, numConnsOut, numConns int) Limit {
 	r := new(StaticLimit)
 	*r = *l
 
 	r.BaseLimit.ConnsInbound = numConnsIn
 	r.BaseLimit.ConnsOutbound = numConnsOut
+	r.BaseLimit.Conns = numConns
 
 	return r
 }
