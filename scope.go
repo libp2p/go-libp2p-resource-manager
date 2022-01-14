@@ -223,10 +223,13 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 	}
 
 	if err := s.rc.reserveMemory(int64(size), prio); err != nil {
+		log.Debugw("blocked memory reservation", "scope", s.name, "size", size, "priority", prio, "error", err)
 		return s.wrapError(err)
 	}
 
 	if err := s.reserveMemoryForEdges(size, prio); err != nil {
+		log.Debugw("blocked memory reservation from constraining edge", "scope", s.name, "size", size, "priority", prio, "error", err)
+
 		s.rc.releaseMemory(int64(size))
 		return s.wrapError(err)
 	}
@@ -317,10 +320,12 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 	}
 
 	if err := s.rc.addStream(dir); err != nil {
+		log.Debugw("blocked stream", "scope", s.name, "direction", dir, "error", err)
 		return s.wrapError(err)
 	}
 
 	if err := s.addStreamForEdges(dir); err != nil {
+		log.Debugw("blocked stream from constraining edge", "scope", s.name, "direction", dir, "error", err)
 		s.rc.removeStream(dir)
 		return s.wrapError(err)
 	}
@@ -409,10 +414,12 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 	}
 
 	if err := s.rc.addConn(dir, usefd); err != nil {
+		log.Debugw("blocked connection", "scope", s.name, "direction", dir, "usefd", usefd, "error", err)
 		return s.wrapError(err)
 	}
 
 	if err := s.addConnForEdges(dir, usefd); err != nil {
+		log.Debugw("blocked connection from constraining edge", "scope", s.name, "direction", dir, "usefd", usefd, "error", err)
 		s.rc.removeConn(dir, usefd)
 		return s.wrapError(err)
 	}
