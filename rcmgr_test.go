@@ -15,7 +15,7 @@ func TestResourceManager(t *testing.T) {
 	protoB := protocol.ID("/B")
 	svcA := "A.svc"
 	svcB := "B.svc"
-	mgr := NewResourceManager(
+	nmgr, err := NewResourceManager(
 		&BasicLimiter{
 			SystemLimits: &StaticLimit{
 				Memory: 16384,
@@ -176,8 +176,13 @@ func TestResourceManager(t *testing.T) {
 					Streams:         1,
 				},
 			},
-		}).(*resourceManager)
+		})
 
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := nmgr.(*resourceManager)
 	defer mgr.Close()
 
 	checkRefCnt := func(s *resourceScope, count int) {
