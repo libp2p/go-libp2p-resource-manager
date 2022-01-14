@@ -12,8 +12,12 @@ type Limit interface {
 	GetMemoryLimit() int64
 	// GetStreamLimit returns the stream limit, for inbound or outbound streams.
 	GetStreamLimit(network.Direction) int
+	// GetStreamTotalLimit returns the total stream limit
+	GetStreamTotalLimit() int
 	// GetConnLimit returns the connection limit, for inbound or outbound connections.
 	GetConnLimit(network.Direction) int
+	// GetConnTotalLimit returns the total connection limit
+	GetConnTotalLimit() int
 	// GetFDLimit returns the file descriptor limit.
 	GetFDLimit() int
 
@@ -22,10 +26,10 @@ type Limit interface {
 	WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit
 	// WithStreamLimit creates a copy of this limit object, with stream limits adjusted
 	// as specified.
-	WithStreamLimit(numStreamsIn, numStreamsOut int) Limit
+	WithStreamLimit(numStreamsIn, numStreamsOut, numStreams int) Limit
 	// WithConnLimit creates a copy of this limit object, with connetion limits adjusted
 	// as specified.
-	WithConnLimit(numConnsIn, numConnsOut int) Limit
+	WithConnLimit(numConnsIn, numConnsOut, numConns int) Limit
 	// WithFDLimit creates a copy of this limit object, with file descriptor limits adjusted
 	// as specified
 	WithFDLimit(numFD int) Limit
@@ -66,8 +70,10 @@ var _ Limiter = (*BasicLimiter)(nil)
 
 // BaseLimit is a mixin type for basic resource limits.
 type BaseLimit struct {
+	Streams         int
 	StreamsInbound  int
 	StreamsOutbound int
+	Conns           int
 	ConnsInbound    int
 	ConnsOutbound   int
 	FD              int
@@ -81,12 +87,20 @@ func (l *BaseLimit) GetStreamLimit(dir network.Direction) int {
 	}
 }
 
+func (l *BaseLimit) GetStreamTotalLimit() int {
+	return l.Streams
+}
+
 func (l *BaseLimit) GetConnLimit(dir network.Direction) int {
 	if dir == network.DirInbound {
 		return l.ConnsInbound
 	} else {
 		return l.ConnsOutbound
 	}
+}
+
+func (l *BaseLimit) GetConnTotalLimit() int {
+	return l.Conns
 }
 
 func (l *BaseLimit) GetFDLimit() int {
@@ -154,8 +168,10 @@ func DefaultSystemBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  4096,
 		StreamsOutbound: 16384,
+		Streams:         16384,
 		ConnsInbound:    256,
-		ConnsOutbound:   512,
+		ConnsOutbound:   1024,
+		Conns:           1024,
 		FD:              512,
 	}
 }
@@ -165,8 +181,10 @@ func DefaultTransientBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  128,
 		StreamsOutbound: 512,
+		Streams:         512,
 		ConnsInbound:    32,
 		ConnsOutbound:   128,
+		Conns:           128,
 		FD:              128,
 	}
 }
@@ -176,6 +194,7 @@ func DefaultServiceBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  2048,
 		StreamsOutbound: 8192,
+		Streams:         8192,
 	}
 }
 
@@ -184,6 +203,7 @@ func DefaultServicePeerBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  256,
 		StreamsOutbound: 512,
+		Streams:         512,
 	}
 }
 
@@ -192,6 +212,7 @@ func DefaultProtocolBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  1024,
 		StreamsOutbound: 4096,
+		Streams:         4096,
 	}
 }
 
@@ -200,6 +221,7 @@ func DefaultProtocolPeerBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  128,
 		StreamsOutbound: 256,
+		Streams:         512,
 	}
 }
 
@@ -207,9 +229,11 @@ func DefaultProtocolPeerBaseLimit() BaseLimit {
 func DefaultPeerBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  512,
-		StreamsOutbound: 2048,
+		StreamsOutbound: 1024,
+		Streams:         1024,
 		ConnsInbound:    8,
 		ConnsOutbound:   16,
+		Conns:           16,
 		FD:              8,
 	}
 }
@@ -219,6 +243,7 @@ func ConnBaseLimit() BaseLimit {
 	return BaseLimit{
 		ConnsInbound:  1,
 		ConnsOutbound: 1,
+		Conns:         1,
 		FD:            1,
 	}
 }
@@ -228,6 +253,7 @@ func StreamBaseLimit() BaseLimit {
 	return BaseLimit{
 		StreamsInbound:  1,
 		StreamsOutbound: 1,
+		Streams:         1,
 	}
 }
 

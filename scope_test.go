@@ -35,8 +35,10 @@ func TestResources(t *testing.T) {
 		BaseLimit: BaseLimit{
 			StreamsInbound:  1,
 			StreamsOutbound: 1,
+			Streams:         1,
 			ConnsInbound:    1,
 			ConnsOutbound:   1,
+			Conns:           1,
 			FD:              1,
 		},
 	}}
@@ -163,13 +165,18 @@ func TestResources(t *testing.T) {
 	rc.releaseMemory(3584)
 	checkResources(t, &rc, network.ScopeStat{})
 
+	// test addStream
 	if err := rc.addStream(network.DirInbound); err != nil {
 		t.Fatal(err)
 	}
 	checkResources(t, &rc, network.ScopeStat{NumStreamsInbound: 1})
 
-	// test addStream
 	if err := rc.addStream(network.DirInbound); err == nil {
+		t.Fatal("expected addStream to fail")
+	}
+	checkResources(t, &rc, network.ScopeStat{NumStreamsInbound: 1})
+
+	if err := rc.addStream(network.DirOutbound); err == nil {
 		t.Fatal("expected addStream to fail")
 	}
 	checkResources(t, &rc, network.ScopeStat{NumStreamsInbound: 1})
@@ -183,6 +190,11 @@ func TestResources(t *testing.T) {
 	checkResources(t, &rc, network.ScopeStat{NumStreamsOutbound: 1})
 
 	if err := rc.addStream(network.DirOutbound); err == nil {
+		t.Fatal("expected addStream to fail")
+	}
+	checkResources(t, &rc, network.ScopeStat{NumStreamsOutbound: 1})
+
+	if err := rc.addStream(network.DirInbound); err == nil {
 		t.Fatal("expected addStream to fail")
 	}
 	checkResources(t, &rc, network.ScopeStat{NumStreamsOutbound: 1})
@@ -238,8 +250,10 @@ func TestResourceScopeSimple(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
+				Streams:         1,
 				ConnsInbound:    1,
 				ConnsOutbound:   1,
+				Conns:           1,
 				FD:              1,
 			},
 		},
@@ -297,6 +311,11 @@ func testResourceScopeBasic(t *testing.T, s *resourceScope) {
 	}
 	checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 
+	if err := s.AddStream(network.DirOutbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
+
 	s.RemoveStream(network.DirInbound)
 	checkResources(t, &s.rc, network.ScopeStat{})
 
@@ -306,6 +325,11 @@ func testResourceScopeBasic(t *testing.T, s *resourceScope) {
 	checkResources(t, &s.rc, network.ScopeStat{NumStreamsOutbound: 1})
 
 	if err := s.AddStream(network.DirOutbound); err == nil {
+		t.Fatal("expected AddStream to fail")
+	}
+	checkResources(t, &s.rc, network.ScopeStat{NumStreamsOutbound: 1})
+
+	if err := s.AddStream(network.DirInbound); err == nil {
 		t.Fatal("expected AddStream to fail")
 	}
 	checkResources(t, &s.rc, network.ScopeStat{NumStreamsOutbound: 1})
@@ -360,8 +384,10 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
+				Streams:         1,
 				ConnsInbound:    1,
 				ConnsOutbound:   1,
+				Conns:           1,
 				FD:              1,
 			},
 		},
@@ -395,8 +421,10 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
+				Streams:         1,
 				ConnsInbound:    1,
 				ConnsOutbound:   1,
+				Conns:           1,
 				FD:              1,
 			},
 		},
@@ -437,8 +465,10 @@ func TestResourceScopeTxnTree(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
+				Streams:         1,
 				ConnsInbound:    1,
 				ConnsOutbound:   1,
+				Conns:           1,
 				FD:              1,
 			},
 		},
@@ -546,8 +576,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  4,
 				StreamsOutbound: 4,
+				Streams:         4,
 				ConnsInbound:    4,
 				ConnsOutbound:   4,
+				Conns:           4,
 				FD:              4,
 			},
 		},
@@ -559,8 +591,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  2,
 				StreamsOutbound: 2,
+				Streams:         2,
 				ConnsInbound:    2,
 				ConnsOutbound:   2,
+				Conns:           2,
 				FD:              2,
 			},
 		},
@@ -572,8 +606,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  2,
 				StreamsOutbound: 2,
+				Streams:         2,
 				ConnsInbound:    2,
 				ConnsOutbound:   2,
+				Conns:           2,
 				FD:              2,
 			},
 		},
@@ -585,8 +621,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  2,
 				StreamsOutbound: 2,
+				Streams:         2,
 				ConnsInbound:    2,
 				ConnsOutbound:   2,
+				Conns:           2,
 				FD:              2,
 			},
 		},
@@ -598,8 +636,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  2,
 				StreamsOutbound: 2,
+				Streams:         2,
 				ConnsInbound:    2,
 				ConnsOutbound:   2,
+				Conns:           2,
 				FD:              2,
 			},
 		},
@@ -611,8 +651,10 @@ func TestResourceScopeDAG(t *testing.T) {
 			BaseLimit: BaseLimit{
 				StreamsInbound:  2,
 				StreamsOutbound: 2,
+				Streams:         2,
 				ConnsInbound:    2,
 				ConnsOutbound:   2,
+				Conns:           2,
 				FD:              2,
 			},
 		},

@@ -22,8 +22,10 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  3,
 					StreamsOutbound: 3,
+					Streams:         6,
 					ConnsInbound:    3,
 					ConnsOutbound:   3,
+					Conns:           6,
 					FD:              2,
 				},
 			},
@@ -32,8 +34,10 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
+					Streams:         2,
 					ConnsInbound:    1,
 					ConnsOutbound:   1,
+					Conns:           2,
 					FD:              1,
 				},
 			},
@@ -42,8 +46,10 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
+					Streams:         2,
 					ConnsInbound:    1,
 					ConnsOutbound:   1,
+					Conns:           2,
 					FD:              1,
 				},
 			},
@@ -52,6 +58,7 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  5,
 					StreamsOutbound: 5,
+					Streams:         10,
 				},
 			},
 			ServiceLimits: map[string]Limit{
@@ -60,8 +67,10 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  2,
 						StreamsOutbound: 2,
+						Streams:         4,
 						ConnsInbound:    2,
 						ConnsOutbound:   2,
+						Conns:           4,
 						FD:              1,
 					},
 				},
@@ -70,8 +79,10 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  2,
 						StreamsOutbound: 2,
+						Streams:         4,
 						ConnsInbound:    2,
 						ConnsOutbound:   2,
+						Conns:           4,
 						FD:              1,
 					},
 				},
@@ -82,6 +93,7 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  1,
 						StreamsOutbound: 1,
+						Streams:         2,
 					},
 				},
 			},
@@ -90,6 +102,7 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
+					Streams:         2,
 				},
 			},
 			ProtocolLimits: map[protocol.ID]Limit{
@@ -98,6 +111,7 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  2,
 						StreamsOutbound: 2,
+						Streams:         2,
 					},
 				},
 			},
@@ -107,6 +121,7 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  1,
 						StreamsOutbound: 1,
+						Streams:         2,
 					},
 				},
 			},
@@ -115,8 +130,10 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
+					Streams:         2,
 					ConnsInbound:    1,
 					ConnsOutbound:   1,
+					Conns:           2,
 					FD:              1,
 				},
 			},
@@ -125,6 +142,7 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  5,
 					StreamsOutbound: 5,
+					Streams:         10,
 				},
 			},
 			PeerLimits: map[peer.ID]Limit{
@@ -133,8 +151,10 @@ func TestResourceManager(t *testing.T) {
 					BaseLimit: BaseLimit{
 						StreamsInbound:  2,
 						StreamsOutbound: 2,
+						Streams:         4,
 						ConnsInbound:    2,
 						ConnsOutbound:   2,
+						Conns:           4,
 						FD:              1,
 					},
 				},
@@ -144,6 +164,7 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					ConnsInbound:  1,
 					ConnsOutbound: 1,
+					Conns:         1,
 					FD:            1,
 				},
 			},
@@ -152,6 +173,7 @@ func TestResourceManager(t *testing.T) {
 				BaseLimit: BaseLimit{
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
+					Streams:         1,
 				},
 			},
 		}).(*resourceManager)

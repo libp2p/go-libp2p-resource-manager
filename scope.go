@@ -108,6 +108,9 @@ func (rc *resources) addStreams(incount, outcount int) error {
 	if outcount > 0 && rc.nstreamsOut+outcount > rc.limit.GetStreamLimit(network.DirOutbound) {
 		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
 	}
+	if rc.nstreamsIn+incount+rc.nstreamsOut+outcount > rc.limit.GetStreamTotalLimit() {
+		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
+	}
 
 	rc.nstreamsIn += incount
 	rc.nstreamsOut += outcount
@@ -154,6 +157,9 @@ func (rc *resources) addConns(incount, outcount, fdcount int) error {
 		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
 	if outcount > 0 && rc.nconnsOut+outcount > rc.limit.GetConnLimit(network.DirOutbound) {
+		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
+	}
+	if rc.nconnsIn+incount+rc.nconnsOut+outcount > rc.limit.GetConnTotalLimit() {
 		return fmt.Errorf("cannot reserve connection: %w", network.ErrResourceLimitExceeded)
 	}
 	if fdcount > 0 && rc.nfd+fdcount > rc.limit.GetFDLimit() {
