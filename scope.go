@@ -32,9 +32,9 @@ type resourceScope struct {
 	done   bool
 	refCnt int
 
-	rc          resources
-	owner       *resourceScope   // set in span scopes, which define trees
-	constraints []*resourceScope // set in DAG scopes, it's the linearized parent set
+	rc    resources
+	owner *resourceScope   // set in span scopes, which define trees
+	edges []*resourceScope // set in DAG scopes, it's the linearized parent set
 
 	name string // for debugging purposes
 }
@@ -42,14 +42,14 @@ type resourceScope struct {
 var _ network.ResourceScope = (*resourceScope)(nil)
 var _ network.ResourceScopeSpan = (*resourceScope)(nil)
 
-func newResourceScope(limit Limit, constraints []*resourceScope, name string) *resourceScope {
-	for _, cst := range constraints {
-		cst.IncRef()
+func newResourceScope(limit Limit, edges []*resourceScope, name string) *resourceScope {
+	for _, e := range edges {
+		e.IncRef()
 	}
 	return &resourceScope{
-		rc:          resources{limit: limit},
-		constraints: constraints,
-		name:        name,
+		rc:    resources{limit: limit},
+		edges: edges,
+		name:  name,
 	}
 }
 
@@ -214,7 +214,7 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 		return s.wrapError(err)
 	}
 
-	if err := s.reserveMemoryForConstraints(size, prio); err != nil {
+	if err := s.reserveMemoryForEdges(size, prio); err != nil {
 		s.rc.releaseMemory(int64(size))
 		return s.wrapError(err)
 	}
@@ -222,15 +222,15 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 	return nil
 }
 
-func (s *resourceScope) reserveMemoryForConstraints(size int, prio uint8) error {
+func (s *resourceScope) reserveMemoryForEdges(size int, prio uint8) error {
 	if s.owner != nil {
 		return s.owner.ReserveMemory(size, prio)
 	}
 
 	var reserved int
 	var err error
-	for _, cst := range s.constraints {
-		if err = cst.ReserveMemoryForChild(int64(size), prio); err != nil {
+	for _, e := range s.edges {
+		if err = e.ReserveMemoryForChild(int64(size), prio); err != nil {
 			break
 		}
 
@@ -239,22 +239,22 @@ func (s *resourceScope) reserveMemoryForConstraints(size int, prio uint8) error 
 
 	if err != nil {
 		// we failed because of a constraint; undo memory reservations
-		for _, cst := range s.constraints[:reserved] {
-			cst.ReleaseMemoryForChild(int64(size))
+		for _, e := range s.edges[:reserved] {
+			e.ReleaseMemoryForChild(int64(size))
 		}
 	}
 
 	return err
 }
 
-func (s *resourceScope) releaseMemoryForConstraints(size int) {
+func (s *resourceScope) releaseMemoryForEdges(size int) {
 	if s.owner != nil {
 		s.owner.ReleaseMemory(size)
 		return
 	}
 
-	for _, cst := range s.constraints {
-		cst.ReleaseMemoryForChild(int64(size))
+	for _, e := range s.edges {
+		e.ReleaseMemoryForChild(int64(size))
 	}
 }
 
@@ -282,7 +282,7 @@ func (s *resourceScope) ReleaseMemory(size int) {
 	}
 
 	s.rc.releaseMemory(int64(size))
-	s.releaseMemoryForConstraints(size)
+	s.releaseMemoryForEdges(size)
 }
 
 func (s *resourceScope) ReleaseMemoryForChild(size int64) {
@@ -308,7 +308,7 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 		return s.wrapError(err)
 	}
 
-	if err := s.addStreamForConstraints(dir); err != nil {
+	if err := s.addStreamForEdges(dir); err != nil {
 		s.rc.removeStream(dir)
 		return s.wrapError(err)
 	}
@@ -316,23 +316,23 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 	return nil
 }
 
-func (s *resourceScope) addStreamForConstraints(dir network.Direction) error {
+func (s *resourceScope) addStreamForEdges(dir network.Direction) error {
 	if s.owner != nil {
 		return s.owner.AddStream(dir)
 	}
 
 	var err error
 	var reserved int
-	for _, cst := range s.constraints {
-		if err = cst.AddStreamForChild(dir); err != nil {
+	for _, e := range s.edges {
+		if err = e.AddStreamForChild(dir); err != nil {
 			break
 		}
 		reserved++
 	}
 
 	if err != nil {
-		for _, cst := range s.constraints[:reserved] {
-			cst.RemoveStreamForChild(dir)
+		for _, e := range s.edges[:reserved] {
+			e.RemoveStreamForChild(dir)
 		}
 	}
 
@@ -363,17 +363,17 @@ func (s *resourceScope) RemoveStream(dir network.Direction) {
 	}
 
 	s.rc.removeStream(dir)
-	s.removeStreamForConstraints(dir)
+	s.removeStreamForEdges(dir)
 }
 
-func (s *resourceScope) removeStreamForConstraints(dir network.Direction) {
+func (s *resourceScope) removeStreamForEdges(dir network.Direction) {
 	if s.owner != nil {
 		s.owner.RemoveStream(dir)
 		return
 	}
 
-	for _, cst := range s.constraints {
-		cst.RemoveStreamForChild(dir)
+	for _, e := range s.edges {
+		e.RemoveStreamForChild(dir)
 	}
 }
 
@@ -400,7 +400,7 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 		return s.wrapError(err)
 	}
 
-	if err := s.addConnForConstraints(dir, usefd); err != nil {
+	if err := s.addConnForEdges(dir, usefd); err != nil {
 		s.rc.removeConn(dir, usefd)
 		return s.wrapError(err)
 	}
@@ -408,23 +408,23 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 	return nil
 }
 
-func (s *resourceScope) addConnForConstraints(dir network.Direction, usefd bool) error {
+func (s *resourceScope) addConnForEdges(dir network.Direction, usefd bool) error {
 	if s.owner != nil {
 		return s.owner.AddConn(dir, usefd)
 	}
 
 	var err error
 	var reserved int
-	for _, cst := range s.constraints {
-		if err = cst.AddConnForChild(dir, usefd); err != nil {
+	for _, e := range s.edges {
+		if err = e.AddConnForChild(dir, usefd); err != nil {
 			break
 		}
 		reserved++
 	}
 
 	if err != nil {
-		for _, cst := range s.constraints[:reserved] {
-			cst.RemoveConnForChild(dir, usefd)
+		for _, e := range s.edges[:reserved] {
+			e.RemoveConnForChild(dir, usefd)
 		}
 	}
 
@@ -455,16 +455,16 @@ func (s *resourceScope) RemoveConn(dir network.Direction, usefd bool) {
 	}
 
 	s.rc.removeConn(dir, usefd)
-	s.removeConnForConstraints(dir, usefd)
+	s.removeConnForEdges(dir, usefd)
 }
 
-func (s *resourceScope) removeConnForConstraints(dir network.Direction, usefd bool) {
+func (s *resourceScope) removeConnForEdges(dir network.Direction, usefd bool) {
 	if s.owner != nil {
 		s.owner.RemoveConn(dir, usefd)
 	}
 
-	for _, cst := range s.constraints {
-		cst.RemoveConnForChild(dir, usefd)
+	for _, e := range s.edges {
+		e.RemoveConnForChild(dir, usefd)
 	}
 }
 
@@ -533,8 +533,8 @@ func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 	if s.owner != nil {
 		s.owner.ReleaseResources(st)
 	} else {
-		for _, cst := range s.constraints {
-			cst.ReleaseForChild(st)
+		for _, e := range s.edges {
+			e.ReleaseForChild(st)
 		}
 	}
 }
@@ -564,9 +564,9 @@ func (s *resourceScope) Done() {
 		s.owner.ReleaseResources(stat)
 		s.owner.DecRef()
 	} else {
-		for _, cst := range s.constraints {
-			cst.ReleaseForChild(stat)
-			cst.DecRef()
+		for _, e := range s.edges {
+			e.ReleaseForChild(stat)
+			e.DecRef()
 		}
 	}
 
