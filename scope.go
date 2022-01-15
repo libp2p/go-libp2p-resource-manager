@@ -36,29 +36,36 @@ type resourceScope struct {
 	owner *resourceScope   // set in span scopes, which define trees
 	edges []*resourceScope // set in DAG scopes, it's the linearized parent set
 
-	name string // for debugging purposes
+	name  string // for debugging purposes
+	trace *trace // debug tracing
 }
 
 var _ network.ResourceScope = (*resourceScope)(nil)
 var _ network.ResourceScopeSpan = (*resourceScope)(nil)
 
-func newResourceScope(limit Limit, edges []*resourceScope, name string) *resourceScope {
+func newResourceScope(limit Limit, edges []*resourceScope, name string, trace *trace) *resourceScope {
 	for _, e := range edges {
 		e.IncRef()
 	}
-	return &resourceScope{
+	r := &resourceScope{
 		rc:    resources{limit: limit},
 		edges: edges,
 		name:  name,
+		trace: trace,
 	}
+	r.trace.CreateScope(name, limit)
+	return r
 }
 
 func newResourceScopeSpan(owner *resourceScope) *resourceScope {
-	return &resourceScope{
+	r := &resourceScope{
 		rc:    resources{limit: owner.rc.limit},
 		owner: owner,
-		name:  fmt.Sprintf("%s.txn", owner.name),
+		name:  fmt.Sprintf("%s.span", owner.name),
+		trace: owner.trace,
 	}
+	r.trace.CreateScope(r.name, r.rc.limit)
+	return r
 }
 
 // Resources implementation
@@ -230,6 +237,7 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 
 	if err := s.rc.reserveMemory(int64(size), prio); err != nil {
 		log.Debugw("blocked memory reservation", "scope", s.name, "size", size, "priority", prio, "error", err)
+		s.trace.BlockReserveMemory(s.name, prio, int64(size), s.rc.memory)
 		return s.wrapError(err)
 	}
 
@@ -240,6 +248,7 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 		return s.wrapError(err)
 	}
 
+	s.trace.ReserveMemory(s.name, prio, int64(size), s.rc.memory)
 	return nil
 }
 
@@ -288,9 +297,11 @@ func (s *resourceScope) ReserveMemoryForChild(size int64, prio uint8) error {
 	}
 
 	if err := s.rc.reserveMemory(size, prio); err != nil {
+		s.trace.BlockReserveMemory(s.name, prio, size, s.rc.memory)
 		return s.wrapError(err)
 	}
 
+	s.trace.ReserveMemory(s.name, prio, size, s.rc.memory)
 	return nil
 }
 
@@ -304,6 +315,7 @@ func (s *resourceScope) ReleaseMemory(size int) {
 
 	s.rc.releaseMemory(int64(size))
 	s.releaseMemoryForEdges(size)
+	s.trace.ReleaseMemory(s.name, int64(size), s.rc.memory)
 }
 
 func (s *resourceScope) ReleaseMemoryForChild(size int64) {
@@ -315,6 +327,7 @@ func (s *resourceScope) ReleaseMemoryForChild(size int64) {
 	}
 
 	s.rc.releaseMemory(size)
+	s.trace.ReleaseMemory(s.name, size, s.rc.memory)
 }
 
 func (s *resourceScope) AddStream(dir network.Direction) error {
@@ -327,6 +340,7 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 
 	if err := s.rc.addStream(dir); err != nil {
 		log.Debugw("blocked stream", "scope", s.name, "direction", dir, "error", err)
+		s.trace.BlockAddStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 		return s.wrapError(err)
 	}
 
@@ -336,6 +350,7 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 		return s.wrapError(err)
 	}
 
+	s.trace.AddStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 	return nil
 }
 
@@ -371,9 +386,11 @@ func (s *resourceScope) AddStreamForChild(dir network.Direction) error {
 	}
 
 	if err := s.rc.addStream(dir); err != nil {
+		s.trace.BlockAddStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 		return s.wrapError(err)
 	}
 
+	s.trace.AddStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 	return nil
 }
 
@@ -387,6 +404,7 @@ func (s *resourceScope) RemoveStream(dir network.Direction) {
 
 	s.rc.removeStream(dir)
 	s.removeStreamForEdges(dir)
+	s.trace.RemoveStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 }
 
 func (s *resourceScope) removeStreamForEdges(dir network.Direction) {
@@ -409,6 +427,7 @@ func (s *resourceScope) RemoveStreamForChild(dir network.Direction) {
 	}
 
 	s.rc.removeStream(dir)
+	s.trace.RemoveStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 }
 
 func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
@@ -421,6 +440,7 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 
 	if err := s.rc.addConn(dir, usefd); err != nil {
 		log.Debugw("blocked connection", "scope", s.name, "direction", dir, "usefd", usefd, "error", err)
+		s.trace.BlockAddConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 		return s.wrapError(err)
 	}
 
@@ -430,6 +450,7 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 		return s.wrapError(err)
 	}
 
+	s.trace.AddConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 	return nil
 }
 
@@ -465,9 +486,11 @@ func (s *resourceScope) AddConnForChild(dir network.Direction, usefd bool) error
 	}
 
 	if err := s.rc.addConn(dir, usefd); err != nil {
+		s.trace.BlockAddConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 		return s.wrapError(err)
 	}
 
+	s.trace.AddConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 	return nil
 }
 
@@ -481,6 +504,7 @@ func (s *resourceScope) RemoveConn(dir network.Direction, usefd bool) {
 
 	s.rc.removeConn(dir, usefd)
 	s.removeConnForEdges(dir, usefd)
+	s.trace.RemoveConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
 func (s *resourceScope) removeConnForEdges(dir network.Direction, usefd bool) {
@@ -502,6 +526,7 @@ func (s *resourceScope) RemoveConnForChild(dir network.Direction, usefd bool) {
 	}
 
 	s.rc.removeConn(dir, usefd)
+	s.trace.RemoveConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
 func (s *resourceScope) ReserveForChild(st network.ScopeStat) error {
@@ -513,19 +538,27 @@ func (s *resourceScope) ReserveForChild(st network.ScopeStat) error {
 	}
 
 	if err := s.rc.reserveMemory(st.Memory, network.ReservationPriorityAlways); err != nil {
+		s.trace.BlockReserveMemory(s.name, 255, st.Memory, s.rc.memory)
 		return s.wrapError(err)
 	}
 
 	if err := s.rc.addStreams(st.NumStreamsInbound, st.NumStreamsOutbound); err != nil {
+		s.trace.BlockAddStreams(s.name, st.NumStreamsInbound, st.NumStreamsOutbound, s.rc.nstreamsIn, s.rc.nstreamsOut)
 		s.rc.releaseMemory(st.Memory)
 		return s.wrapError(err)
 	}
 
 	if err := s.rc.addConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD); err != nil {
+		s.trace.BlockAddConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
+
 		s.rc.releaseMemory(st.Memory)
 		s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
 		return s.wrapError(err)
 	}
+
+	s.trace.ReserveMemory(s.name, 255, st.Memory, s.rc.memory)
+	s.trace.AddStreams(s.name, st.NumStreamsInbound, st.NumStreamsOutbound, s.rc.nstreamsIn, s.rc.nstreamsOut)
+	s.trace.AddConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 
 	return nil
 }
@@ -541,6 +574,10 @@ func (s *resourceScope) ReleaseForChild(st network.ScopeStat) {
 	s.rc.releaseMemory(st.Memory)
 	s.rc.removeStreams(st.NumStreamsInbound, st.NumStreamsOutbound)
 	s.rc.removeConns(st.NumConnsInbound, st.NumConnsOutbound, st.NumFD)
+
+	s.trace.ReleaseMemory(s.name, st.Memory, s.rc.memory)
+	s.trace.RemoveStreams(s.name, st.NumStreamsInbound, st.NumStreamsOutbound, s.rc.nstreamsIn, s.rc.nstreamsOut)
+	s.trace.RemoveConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
 func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
@@ -562,6 +599,10 @@ func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 			e.ReleaseForChild(st)
 		}
 	}
+
+	s.trace.ReleaseMemory(s.name, st.Memory, s.rc.memory)
+	s.trace.RemoveStreams(s.name, st.NumStreamsInbound, st.NumStreamsOutbound, s.rc.nstreamsIn, s.rc.nstreamsOut)
+	s.trace.RemoveConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
 func (s *resourceScope) BeginSpan() (network.ResourceScopeSpan, error) {
@@ -603,6 +644,8 @@ func (s *resourceScope) Done() {
 	s.rc.memory = 0
 
 	s.done = true
+
+	s.trace.DestroyScope(s.name)
 }
 
 func (s *resourceScope) Stat() network.ScopeStat {

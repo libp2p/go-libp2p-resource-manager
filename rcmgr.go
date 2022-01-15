@@ -18,6 +18,8 @@ var log = logging.Logger("rcmgr")
 type resourceManager struct {
 	limits Limiter
 
+	trace *trace
+
 	system    *systemScope
 	transient *transientScope
 
@@ -29,6 +31,8 @@ type resourceManager struct {
 	svc   map[string]*serviceScope
 	proto map[protocol.ID]*protocolScope
 	peer  map[peer.ID]*peerScope
+
+	connId, streamId int64
 }
 
 var _ network.ResourceManager = (*resourceManager)(nil)
@@ -122,9 +126,13 @@ func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager
 		}
 	}
 
-	r.system = newSystemScope(limits.GetSystemLimits())
+	if err := r.trace.Start(limits); err != nil {
+		return nil, err
+	}
+
+	r.system = newSystemScope(limits.GetSystemLimits(), r)
 	r.system.IncRef()
-	r.transient = newTransientScope(limits.GetTransientLimits(), r.system)
+	r.transient = newTransientScope(limits.GetTransientLimits(), r)
 	r.transient.IncRef()
 
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
@@ -206,6 +214,22 @@ func (r *resourceManager) getPeerScope(p peer.ID) *peerScope {
 	return s
 }
 
+func (r *resourceManager) nextConnId() int64 {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	r.connId++
+	return r.connId
+}
+
+func (r *resourceManager) nextStreamId() int64 {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	r.streamId++
+	return r.streamId
+}
+
 func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (network.ConnManagementScope, error) {
 	conn := newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 
@@ -219,7 +243,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 
 func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.StreamManagementScope, error) {
 	peer := r.getPeerScope(p)
-	stream := newStreamScope(dir, r.limits.GetStreamLimits(p), peer)
+	stream := newStreamScope(dir, r.limits.GetStreamLimits(p), peer, r)
 	peer.DecRef() // we have the reference in edges
 
 	err := stream.AddStream(dir)
@@ -234,6 +258,7 @@ func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 func (r *resourceManager) Close() error {
 	r.cancel()
 	r.wg.Wait()
+	r.trace.Close()
 
 	return nil
 }
@@ -300,22 +325,22 @@ func (r *resourceManager) gc() {
 	}
 }
 
-func newSystemScope(limit Limit) *systemScope {
+func newSystemScope(limit Limit, rcmgr *resourceManager) *systemScope {
 	return &systemScope{
-		resourceScope: newResourceScope(limit, nil, "system"),
+		resourceScope: newResourceScope(limit, nil, "system", rcmgr.trace),
 	}
 }
 
-func newTransientScope(limit Limit, system *systemScope) *transientScope {
+func newTransientScope(limit Limit, rcmgr *resourceManager) *transientScope {
 	return &transientScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{system.resourceScope}, "transient"),
-		system:        system,
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, "transient", rcmgr.trace),
+		system:        rcmgr.system,
 	}
 }
 
 func newServiceScope(name string, limit Limit, rcmgr *resourceManager) *serviceScope {
 	return &serviceScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("service.%s", name)),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("service:%s", name), rcmgr.trace),
 		name:          name,
 		rcmgr:         rcmgr,
 	}
@@ -323,7 +348,7 @@ func newServiceScope(name string, limit Limit, rcmgr *resourceManager) *serviceS
 
 func newProtocolScope(proto protocol.ID, limit Limit, rcmgr *resourceManager) *protocolScope {
 	return &protocolScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("protocol.%s", proto)),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("protocol:%s", proto), rcmgr.trace),
 		proto:         proto,
 		rcmgr:         rcmgr,
 	}
@@ -331,7 +356,7 @@ func newProtocolScope(proto protocol.ID, limit Limit, rcmgr *resourceManager) *p
 
 func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 	return &peerScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("peer.%s", p)),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.system.resourceScope}, fmt.Sprintf("peer:%s", p), rcmgr.trace),
 		peer:          p,
 		rcmgr:         rcmgr,
 	}
@@ -339,16 +364,16 @@ func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 
 func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager) *connectionScope {
 	return &connectionScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope}, "connection"),
+		resourceScope: newResourceScope(limit, []*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope}, fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace),
 		dir:           dir,
 		usefd:         usefd,
 		rcmgr:         rcmgr,
 	}
 }
 
-func newStreamScope(dir network.Direction, limit Limit, peer *peerScope) *streamScope {
+func newStreamScope(dir network.Direction, limit Limit, peer *peerScope, rcmgr *resourceManager) *streamScope {
 	return &streamScope{
-		resourceScope: newResourceScope(limit, []*resourceScope{peer.resourceScope, peer.rcmgr.transient.resourceScope, peer.rcmgr.system.resourceScope}, "stream"),
+		resourceScope: newResourceScope(limit, []*resourceScope{peer.resourceScope, rcmgr.transient.resourceScope, rcmgr.system.resourceScope}, fmt.Sprintf("stream-%d", rcmgr.nextStreamId()), rcmgr.trace),
 		dir:           dir,
 		rcmgr:         peer.rcmgr,
 		peer:          peer,
@@ -375,7 +400,7 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer", s.name))
+	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace)
 	s.peers[p] = ps
 
 	ps.IncRef()
@@ -402,7 +427,7 @@ func (s *protocolScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer", s.name))
+	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace)
 	s.peers[p] = ps
 
 	ps.IncRef()
