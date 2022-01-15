@@ -174,6 +174,11 @@ func (t *trace) Start(limits Limiter) error {
 
 	go t.background(out)
 
+	t.push(traceEvt{
+		Type:  traceStartEvt,
+		Limit: limits,
+	})
+
 	return nil
 }
 
