@@ -49,25 +49,25 @@ const (
 type traceEvt struct {
 	Type int
 
-	Scope string `json:"omitempty"`
+	Scope string `json:",omitempty"`
 
-	Limit interface{} `json:"omitempty"`
+	Limit interface{} `json:",omitempty"`
 
-	Priority uint8 `json:"omitempty"`
+	Priority uint8 `json:",omitempty"`
 
-	Delta    int64 `json:"omitempty"`
-	DeltaIn  int   `json:"omitempty"`
-	DeltaOut int   `json:"omitempty"`
+	Delta    int64 `json:",omitempty"`
+	DeltaIn  int   `json:",omitempty"`
+	DeltaOut int   `json:",omitempty"`
 
-	Memory int64 `json:"omitempty"`
+	Memory int64 `json:",omitempty"`
 
-	StreamsIn  int `json:"omitempty"`
-	StreamsOut int `json:"omitempty"`
+	StreamsIn  int `json:",omitempty"`
+	StreamsOut int `json:",omitempty"`
 
-	ConnsIn  int `json:"omitempty"`
-	ConnsOut int `json:"omitempty"`
+	ConnsIn  int `json:",omitempty"`
+	ConnsOut int `json:",omitempty"`
 
-	FD int `json:"omitempty"`
+	FD int `json:",omitempty"`
 }
 
 func (t *trace) push(evt interface{}) {
