@@ -108,6 +108,10 @@ func (t *trace) background(out io.WriteCloser) {
 		case <-ticker.C:
 			getEvents()
 
+			if len(pend) == 0 {
+				continue
+			}
+
 			if err := t.writeEvents(pend, jsonOut); err != nil {
 				log.Warnf("error writing rcmgr trace: %s", err)
 				t.mx.Lock()
@@ -126,6 +130,10 @@ func (t *trace) background(out io.WriteCloser) {
 
 		case <-t.ctx.Done():
 			getEvents()
+
+			if len(pend) == 0 {
+				return
+			}
 
 			if err := t.writeEvents(pend, jsonOut); err != nil {
 				log.Warnf("error writing rcmgr trace: %s", err)
