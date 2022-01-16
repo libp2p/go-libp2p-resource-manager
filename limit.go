@@ -79,6 +79,13 @@ type BaseLimit struct {
 	FD              int
 }
 
+// MemoryLimit is a mixin type for memory limits
+type MemoryLimit struct {
+	MemoryFraction float64
+	MinMemory      int64
+	MaxMemory      int64
+}
+
 func (l *BaseLimit) GetStreamLimit(dir network.Direction) int {
 	if dir == network.DirInbound {
 		return l.StreamsInbound
@@ -163,101 +170,12 @@ func (l *BasicLimiter) GetConnLimits() Limit {
 	return l.ConnLimits
 }
 
-// DefaultSystemBaseLimit returns the default BaseLimit for the System Scope.
-func DefaultSystemBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  4096,
-		StreamsOutbound: 16384,
-		Streams:         16384,
-		ConnsInbound:    256,
-		ConnsOutbound:   1024,
-		Conns:           1024,
-		FD:              512,
-	}
+func (l *MemoryLimit) GetMemory(memoryCap int64) int64 {
+	return memoryLimit(memoryCap, l.MemoryFraction, l.MinMemory, l.MaxMemory)
 }
 
-// DefaultTransientBaseLimit returns the default BaseLimit for the Transient Scope.
-func DefaultTransientBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  128,
-		StreamsOutbound: 512,
-		Streams:         512,
-		ConnsInbound:    32,
-		ConnsOutbound:   128,
-		Conns:           128,
-		FD:              128,
-	}
-}
-
-// DefaultServiceBaseLimit returns the default BaseLimit for Service Scopes.
-func DefaultServiceBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  2048,
-		StreamsOutbound: 8192,
-		Streams:         8192,
-	}
-}
-
-// DefaultServicePeerBaseLimit returns the default BaseLimit per peer for Service Scopes.
-func DefaultServicePeerBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  256,
-		StreamsOutbound: 512,
-		Streams:         512,
-	}
-}
-
-// DefaultProtocolBaseLimit returns the default BaseLimit for Protocol Scopes.
-func DefaultProtocolBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  1024,
-		StreamsOutbound: 4096,
-		Streams:         4096,
-	}
-}
-
-// DefaultProtocolPeerBaseLimit returns the default BaseLimit per peer for Protocol Scopes.
-func DefaultProtocolPeerBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  128,
-		StreamsOutbound: 256,
-		Streams:         512,
-	}
-}
-
-// DefaultPeerBaseLimit returns the default BaseLimit for Peer Scopes.
-func DefaultPeerBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  512,
-		StreamsOutbound: 1024,
-		Streams:         1024,
-		ConnsInbound:    8,
-		ConnsOutbound:   16,
-		Conns:           16,
-		FD:              8,
-	}
-}
-
-// ConnBaseLimit returns the BaseLimit for Connection Scopes.
-func ConnBaseLimit() BaseLimit {
-	return BaseLimit{
-		ConnsInbound:  1,
-		ConnsOutbound: 1,
-		Conns:         1,
-		FD:            1,
-	}
-}
-
-// StreamBaseLimit returns the BaseLimit for Stream Scopes.
-func StreamBaseLimit() BaseLimit {
-	return BaseLimit{
-		StreamsInbound:  1,
-		StreamsOutbound: 1,
-		Streams:         1,
-	}
-}
-
-func memoryLimit(memoryCap int64, minMemory, maxMemory int64) int64 {
+func memoryLimit(memoryCap int64, memFraction float64, minMemory, maxMemory int64) int64 {
+	memoryCap = int64(float64(memoryCap) * memFraction)
 	switch {
 	case memoryCap < minMemory:
 		return minMemory

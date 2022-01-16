@@ -61,55 +61,67 @@ func (l *StaticLimit) WithFDLimit(numFD int) Limit {
 	return r
 }
 
-// NewStaticLimiter creates a limiter with default base limits and a system memory cap specified as
-// a fraction of total system memory. The assigned memory will not be less than minMemory or more
-// than maxMemory.
-func NewStaticLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
-	memoryCap := memoryLimit(int64(float64(memory.TotalMemory())*memFraction), minMemory, maxMemory)
-	return newDefaultStaticLimiter(memoryCap)
+// NewDefaultStaticLimiter creates a static limiter with default base limits and a system memory cap
+// specified as a fraction of total system memory. The assigned memory will not be less than
+// minMemory or more than maxMemory.
+func NewDefaultStaticLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
+	memoryCap := memoryLimit(int64(memory.TotalMemory()), memFraction, minMemory, maxMemory)
+	return NewStaticLimiter(memoryCap, DefaultLimits)
 }
 
-// NewFixedLimiter creates a limiter with default base limits and a specified system memory cap.
-func NewFixedLimiter(memoryCap int64) *BasicLimiter {
-	return newDefaultStaticLimiter(memoryCap)
+// NewDefaultFixedLimiter creates a static limiter with default base limits and a specified system
+// memory cap.
+func NewDefaultFixedLimiter(memoryCap int64) *BasicLimiter {
+	return NewStaticLimiter(memoryCap, DefaultLimits)
 }
 
-func newDefaultStaticLimiter(memoryCap int64) *BasicLimiter {
+// NewDefaultLimiter creates a static limiter with the default limits
+func NewDefaultLimiter() *BasicLimiter {
+	return NewDefaultStaticLimiter(
+		DefaultLimits.SystemMemory.MemoryFraction,
+		DefaultLimits.SystemMemory.MinMemory,
+		DefaultLimits.SystemMemory.MaxMemory,
+	)
+}
+
+// NewStaticLimiter creates a static limiter using the specified system memory cap and default
+// limit config.
+func NewStaticLimiter(memoryCap int64, cfg DefaultLimitConfig) *BasicLimiter {
 	system := &StaticLimit{
 		Memory:    memoryCap,
-		BaseLimit: DefaultSystemBaseLimit(),
+		BaseLimit: cfg.SystemBaseLimit,
 	}
 	transient := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
-		BaseLimit: DefaultTransientBaseLimit(),
+		Memory:    cfg.SystemMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.TransientBaseLimit,
 	}
 	svc := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/4, 64<<20, 512<<20),
-		BaseLimit: DefaultServiceBaseLimit(),
+		Memory:    cfg.ServiceMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.ServiceBaseLimit,
 	}
 	svcPeer := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/16, 16<<20, 64<<20),
-		BaseLimit: DefaultServicePeerBaseLimit(),
+		Memory:    cfg.ServicePeerMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.ServicePeerBaseLimit,
 	}
 	proto := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
-		BaseLimit: DefaultProtocolBaseLimit(),
+		Memory:    cfg.ProtocolMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.ProtocolBaseLimit,
 	}
 	protoPeer := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/16, 16<<20, 64<<20),
-		BaseLimit: DefaultProtocolPeerBaseLimit(),
+		Memory:    cfg.ProtocolPeerMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.ProtocolPeerBaseLimit,
 	}
 	peer := &StaticLimit{
-		Memory:    memoryLimit(memoryCap/16, 64<<20, 128<<20),
-		BaseLimit: DefaultPeerBaseLimit(),
+		Memory:    cfg.PeerMemory.GetMemory(memoryCap),
+		BaseLimit: cfg.PeerBaseLimit,
 	}
 	conn := &StaticLimit{
-		Memory:    1 << 20,
-		BaseLimit: ConnBaseLimit(),
+		Memory:    cfg.ConnMemory,
+		BaseLimit: cfg.ConnBaseLimit,
 	}
 	stream := &StaticLimit{
-		Memory:    16 << 20,
-		BaseLimit: StreamBaseLimit(),
+		Memory:    cfg.StreamMemory,
+		BaseLimit: cfg.StreamBaseLimit,
 	}
 
 	return &BasicLimiter{
