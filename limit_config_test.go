@@ -12,14 +12,16 @@ func TestLimitConfigParser(t *testing.T) {
 	require.NoError(t, err)
 	defer in.Close()
 
-	limiter, err := NewLimiterFromJSON(in)
+	limiter, err := NewDefaultLimiterFromJSON(in)
 	require.NoError(t, err)
 
 	require.Equal(t,
 		&DynamicLimit{
-			MinMemory:      16384,
-			MaxMemory:      65536,
-			MemoryFraction: 0.125,
+			MemoryLimit: MemoryLimit{
+				MinMemory:      16384,
+				MaxMemory:      65536,
+				MemoryFraction: 0.125,
+			},
 			BaseLimit: BaseLimit{
 				Streams:         64,
 				StreamsInbound:  32,
@@ -35,21 +37,21 @@ func TestLimitConfigParser(t *testing.T) {
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    4096,
-			BaseLimit: DefaultTransientBaseLimit(),
+			BaseLimit: DefaultLimits.TransientBaseLimit,
 		},
 		limiter.TransientLimits)
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    8192,
-			BaseLimit: DefaultServiceBaseLimit(),
+			BaseLimit: DefaultLimits.ServiceBaseLimit,
 		},
 		limiter.DefaultServiceLimits)
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    2048,
-			BaseLimit: DefaultServicePeerBaseLimit(),
+			BaseLimit: DefaultLimits.ServicePeerBaseLimit,
 		},
 		limiter.DefaultServicePeerLimits)
 
@@ -57,7 +59,7 @@ func TestLimitConfigParser(t *testing.T) {
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    8192,
-			BaseLimit: DefaultServiceBaseLimit(),
+			BaseLimit: DefaultLimits.ServiceBaseLimit,
 		},
 		limiter.ServiceLimits["A"])
 
@@ -65,20 +67,20 @@ func TestLimitConfigParser(t *testing.T) {
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    4096,
-			BaseLimit: DefaultServicePeerBaseLimit(),
+			BaseLimit: DefaultLimits.ServicePeerBaseLimit,
 		},
 		limiter.ServicePeerLimits["A"])
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    2048,
-			BaseLimit: DefaultProtocolBaseLimit(),
+			BaseLimit: DefaultLimits.ProtocolBaseLimit,
 		},
 		limiter.DefaultProtocolLimits)
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    1024,
-			BaseLimit: DefaultProtocolPeerBaseLimit(),
+			BaseLimit: DefaultLimits.ProtocolPeerBaseLimit,
 		},
 		limiter.DefaultProtocolPeerLimits)
 
@@ -86,7 +88,7 @@ func TestLimitConfigParser(t *testing.T) {
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    8192,
-			BaseLimit: DefaultProtocolBaseLimit(),
+			BaseLimit: DefaultLimits.ProtocolBaseLimit,
 		},
 		limiter.ProtocolLimits["/A"])
 
@@ -94,28 +96,28 @@ func TestLimitConfigParser(t *testing.T) {
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    4096,
-			BaseLimit: DefaultProtocolPeerBaseLimit(),
+			BaseLimit: DefaultLimits.ProtocolPeerBaseLimit,
 		},
 		limiter.ProtocolPeerLimits["/A"])
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    4096,
-			BaseLimit: DefaultPeerBaseLimit(),
+			BaseLimit: DefaultLimits.PeerBaseLimit,
 		},
 		limiter.DefaultPeerLimits)
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    1 << 20,
-			BaseLimit: ConnBaseLimit(),
+			BaseLimit: DefaultLimits.ConnBaseLimit,
 		},
 		limiter.ConnLimits)
 
 	require.Equal(t,
 		&StaticLimit{
 			Memory:    16 << 20,
-			BaseLimit: StreamBaseLimit(),
+			BaseLimit: DefaultLimits.StreamBaseLimit,
 		},
 		limiter.StreamLimits)
 

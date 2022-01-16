@@ -9,14 +9,7 @@ import (
 // DynamicLimit is a limit with dynamic memory values, based on available (free) memory
 type DynamicLimit struct {
 	BaseLimit
-
-	// MinMemory is the minimum memory for this limit
-	MinMemory int64
-	// MaxMemory is the maximum memory for this limit
-	MaxMemory int64
-	// MemoryFraction is the fraction of available memory allowed for this limit,
-	// bounded by [MinMemory, MaxMemory]
-	MemoryFraction float64
+	MemoryLimit
 }
 
 var _ Limit = (*DynamicLimit)(nil)
@@ -31,18 +24,16 @@ func (l *DynamicLimit) GetMemoryLimit() int64 {
 	runtime.ReadMemStats(&memstat)
 
 	freemem += (memstat.HeapInuse - memstat.HeapAlloc) + (memstat.HeapIdle - memstat.HeapReleased)
-
-	limit := int64(float64(freemem) * l.MemoryFraction)
-	return memoryLimit(limit, l.MinMemory, l.MaxMemory)
+	return l.MemoryLimit.GetMemory(int64(freemem))
 }
 
 func (l *DynamicLimit) WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit {
 	r := new(DynamicLimit)
 	*r = *l
 
-	r.MemoryFraction *= memFraction
-	r.MinMemory = minMemory
-	r.MaxMemory = maxMemory
+	r.MemoryLimit.MemoryFraction *= memFraction
+	r.MemoryLimit.MinMemory = minMemory
+	r.MemoryLimit.MaxMemory = maxMemory
 
 	return r
 }
@@ -78,61 +69,49 @@ func (l *DynamicLimit) WithFDLimit(numFD int) Limit {
 	return r
 }
 
-// NewDynamicLimiter creates a limiter with default limits and a memory cap dynamically computed
-// based on available memory. minMemory and maxMemory specify the system memory bounds,
-// while memFraction specifies the fraction of available memory available for the system, within
-// the specified bounds.
-func NewDynamicLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
+// NewDefaultDynamicLimiter creates a limiter with default limits and a memory cap
+// dynamically computed based on available memory.
+func NewDefaultDynamicLimiter() *BasicLimiter {
+	return NewDynamicLimiter(DefaultLimits)
+}
+
+// NewDynamicLimiter crates a dynamic limiter with the specified defaults
+func NewDynamicLimiter(cfg DefaultLimitConfig) *BasicLimiter {
 	system := &DynamicLimit{
-		MinMemory:      minMemory,
-		MaxMemory:      maxMemory,
-		MemoryFraction: memFraction,
-		BaseLimit:      DefaultSystemBaseLimit(),
+		MemoryLimit: cfg.SystemMemory,
+		BaseLimit:   cfg.SystemBaseLimit,
 	}
 	transient := &DynamicLimit{
-		MinMemory:      64 << 20,
-		MaxMemory:      128 << 20,
-		MemoryFraction: memFraction / 16,
-		BaseLimit:      DefaultTransientBaseLimit(),
+		MemoryLimit: cfg.TransientMemory,
+		BaseLimit:   cfg.TransientBaseLimit,
 	}
 	svc := &DynamicLimit{
-		MinMemory:      64 << 20,
-		MaxMemory:      512 << 20,
-		MemoryFraction: memFraction / 4,
-		BaseLimit:      DefaultServiceBaseLimit(),
+		MemoryLimit: cfg.ServiceMemory,
+		BaseLimit:   cfg.ServiceBaseLimit,
 	}
 	svcPeer := &DynamicLimit{
-		MinMemory:      16 << 20,
-		MaxMemory:      64 << 20,
-		MemoryFraction: memFraction / 16,
-		BaseLimit:      DefaultServicePeerBaseLimit(),
+		MemoryLimit: cfg.ServicePeerMemory,
+		BaseLimit:   cfg.ServicePeerBaseLimit,
 	}
 	proto := &DynamicLimit{
-		MinMemory:      64 << 20,
-		MaxMemory:      128 << 20,
-		MemoryFraction: memFraction / 16,
-		BaseLimit:      DefaultProtocolBaseLimit(),
+		MemoryLimit: cfg.ProtocolMemory,
+		BaseLimit:   cfg.ProtocolBaseLimit,
 	}
 	protoPeer := &DynamicLimit{
-		MinMemory:      16 << 20,
-		MaxMemory:      64 << 20,
-		MemoryFraction: memFraction / 16,
-		BaseLimit:      DefaultProtocolPeerBaseLimit(),
+		MemoryLimit: cfg.ProtocolPeerMemory,
+		BaseLimit:   cfg.ProtocolPeerBaseLimit,
 	}
-
 	peer := &DynamicLimit{
-		MinMemory:      64 << 20,
-		MaxMemory:      128 << 20,
-		MemoryFraction: memFraction / 16,
-		BaseLimit:      DefaultPeerBaseLimit(),
+		MemoryLimit: cfg.PeerMemory,
+		BaseLimit:   cfg.PeerBaseLimit,
 	}
 	conn := &StaticLimit{
-		Memory:    1 << 20,
-		BaseLimit: ConnBaseLimit(),
+		Memory:    cfg.ConnMemory,
+		BaseLimit: cfg.ConnBaseLimit,
 	}
 	stream := &StaticLimit{
-		Memory:    16 << 20,
-		BaseLimit: StreamBaseLimit(),
+		Memory:    cfg.StreamMemory,
+		BaseLimit: cfg.StreamBaseLimit,
 	}
 
 	return &BasicLimiter{
