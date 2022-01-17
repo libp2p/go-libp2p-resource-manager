@@ -1,6 +1,10 @@
 package rcmgr
 
 import (
+	"bytes"
+	"sort"
+	"strings"
+
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -56,6 +60,10 @@ func (r *resourceManager) ListServices() []string {
 		result = append(result, svc)
 	}
 
+	sort.Slice(result, func(i, j int) bool {
+		return strings.Compare(result[i], result[j]) < 0
+	})
+
 	return result
 }
 
@@ -68,6 +76,10 @@ func (r *resourceManager) ListProtocols() []protocol.ID {
 		result = append(result, p)
 	}
 
+	sort.Slice(result, func(i, j int) bool {
+		return strings.Compare(string(result[i]), string(result[j])) < 0
+	})
+
 	return result
 }
 
@@ -79,6 +91,10 @@ func (r *resourceManager) ListPeers() []peer.ID {
 	for p := range r.peer {
 		result = append(result, p)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return bytes.Compare([]byte(result[i]), []byte(result[j])) < 0
+	})
 
 	return result
 }
