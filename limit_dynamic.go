@@ -71,8 +71,8 @@ func (l *DynamicLimit) WithFDLimit(numFD int) Limit {
 
 // NewDefaultDynamicLimiter creates a limiter with default limits and a memory cap
 // dynamically computed based on available memory.
-func NewDefaultDynamicLimiter() *BasicLimiter {
-	return NewDynamicLimiter(DefaultLimits)
+func NewDefaultDynamicLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
+	return NewDynamicLimiter(DefaultLimits.WithSystemMemory(memFraction, minMemory, maxMemory))
 }
 
 // NewDynamicLimiter crates a dynamic limiter with the specified defaults

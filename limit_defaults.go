@@ -30,6 +30,21 @@ type DefaultLimitConfig struct {
 	StreamMemory    int64
 }
 
+func (cfg *DefaultLimitConfig) WithSystemMemory(memFraction float64, minMemory, maxMemory int64) DefaultLimitConfig {
+	refactor := memFraction / cfg.SystemMemory.MemoryFraction
+	r := *cfg
+	r.SystemMemory.MemoryFraction = memFraction
+	r.SystemMemory.MinMemory = minMemory
+	r.SystemMemory.MaxMemory = maxMemory
+	r.TransientMemory.MemoryFraction *= refactor
+	r.ServiceMemory.MemoryFraction *= refactor
+	r.ServicePeerMemory.MemoryFraction *= refactor
+	r.ProtocolMemory.MemoryFraction *= refactor
+	r.ProtocolPeerMemory.MemoryFraction *= refactor
+	r.PeerMemory.MemoryFraction *= refactor
+	return r
+}
+
 // DefaultLimits are the limits used by the default limiter constructors.
 var DefaultLimits = DefaultLimitConfig{
 	SystemBaseLimit: BaseLimit{
