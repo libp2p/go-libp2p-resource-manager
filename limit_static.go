@@ -65,34 +65,34 @@ func (l *StaticLimit) WithFDLimit(numFD int) Limit {
 // specified as a fraction of total system memory. The assigned memory will not be less than
 // minMemory or more than maxMemory.
 func NewDefaultStaticLimiter(memFraction float64, minMemory, maxMemory int64) *BasicLimiter {
-	memoryCap := memoryLimit(int64(memory.TotalMemory()), memFraction, minMemory, maxMemory)
-	return NewStaticLimiter(memoryCap, DefaultLimits)
+	return NewStaticLimiter(DefaultLimits.WithSystemMemory(memFraction, minMemory, maxMemory))
 }
 
 // NewDefaultFixedLimiter creates a static limiter with default base limits and a specified system
 // memory cap.
 func NewDefaultFixedLimiter(memoryCap int64) *BasicLimiter {
-	return NewStaticLimiter(memoryCap, DefaultLimits)
+	return NewStaticLimiter(DefaultLimits.WithSystemMemory(1, memoryCap, memoryCap))
 }
 
 // NewDefaultLimiter creates a static limiter with the default limits
 func NewDefaultLimiter() *BasicLimiter {
-	return NewDefaultStaticLimiter(
-		DefaultLimits.SystemMemory.MemoryFraction,
-		DefaultLimits.SystemMemory.MinMemory,
-		DefaultLimits.SystemMemory.MaxMemory,
-	)
+	return NewStaticLimiter(DefaultLimits)
 }
 
 // NewStaticLimiter creates a static limiter using the specified system memory cap and default
 // limit config.
-func NewStaticLimiter(memoryCap int64, cfg DefaultLimitConfig) *BasicLimiter {
+func NewStaticLimiter(cfg DefaultLimitConfig) *BasicLimiter {
+	memoryCap := memoryLimit(
+		int64(memory.TotalMemory()),
+		cfg.SystemMemory.MemoryFraction,
+		cfg.SystemMemory.MinMemory,
+		cfg.SystemMemory.MaxMemory)
 	system := &StaticLimit{
 		Memory:    memoryCap,
 		BaseLimit: cfg.SystemBaseLimit,
 	}
 	transient := &StaticLimit{
-		Memory:    cfg.SystemMemory.GetMemory(memoryCap),
+		Memory:    cfg.TransientMemory.GetMemory(memoryCap),
 		BaseLimit: cfg.TransientBaseLimit,
 	}
 	svc := &StaticLimit{
