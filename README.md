@@ -51,7 +51,8 @@ computational time) at the system level. They are also a scarce
 resource, as typically (unless the user explicitly intervenes) they
 are constrained by the system. Exhaustion of file descriptors may
 render the application incapable of operating (e.g. because it is
-unable to open a file).
+unable to open a file), most importantly for libp2p because most
+operating systems represent sockets as file descriptors.
 
 ### Connections
 
@@ -120,8 +121,8 @@ System
 ### The System Scope
 
 The system scope is the top level scope that accounts for global
-resource usage at all levels of the system. This scope constrains all
-other scopes and institutes global hard limits.
+resource usage at all levels of the system. This scope nests and
+constrains all other scopes and institutes global hard limits.
 
 ### The Transient Scope
 
@@ -132,6 +133,10 @@ constrained as this opens an avenue for attacks in transient resource
 usage. Similarly, a stream that has not negotiated a protocol yet is
 constrained by the transient scope.
 
+The transient scope effectively represents a DMZ (DeMilitarized Zone),
+where resource usage can be accounted for connections and streams that
+are not fully established.
+
 ### Service Scopes
 
 The system is typically organized across services, which may be
@@ -140,19 +145,20 @@ autonat, relay, etc). Alternatively, services may be explicitly
 instantiated by the application, and provide core components of its
 functionality (e.g. pubsub, the DHT, etc).
 
-Services consume resources such as memory and may directly own streams
-that implement their protocol flow. Services typically have some
-stream handler, so they are subject to inbound stream creation and
-resource usage in response to network events. As such, the system
-explicitly models them allowing for isolated resource usage that can
-be tuned by the user.
+Services are logical groupings of streams that implement protocol flow
+and may additionally consume resources such as memory. Services
+typically have at least one stream handler, so they are subject to
+inbound stream creation and resource usage in response to network
+events. As such, the system explicitly models them allowing for
+isolated resource usage that can be tuned by the user.
 
 ### Protocol Scopes
 
 Protocol Scopes account for resources at the protocol level. They are
 an intermediate resource scope which can constrain streams which may
 not have a service associated or for resource control within a
-service.
+service. It also provides an opportunity for system operators to
+explicitly restrict specific protocols.
 
 For instance, a service that is not aware of the resource manager and
 has not been ported to mark its streams, may still gain limits
@@ -255,17 +261,18 @@ More specifically, the following constraints apply:
 The existence of the protocol limit allows us to implicitly constrain
 streams for services that have not been ported to the resource manager
 yet.  Once the programmer attaches a stream to a service by calling
-`StreamScope.SetService`, the protocol limits are removed and the
-stream is now constrained by the service limits.
+`StreamScope.SetService`, the stream resources are aggregated and constrained
+by the service scope in addition to its protocol scope.
 
 More specifically the following constraints apply:
 - the system scope, where global hard limits apply.
 - the peer scope, where the limits for the peer at the other end of the stream
   apply.
 - the service scope, where the limits of the specific service owning the stream apply.
+- the protcol scope, where the limits of the specific protocol for the stream apply.
 
 
-The resource transfer happens in the `SetProtocol` and `SetService`
+The resource transfer that happens in the `SetProtocol` and `SetService`
 gives the opportunity to the resource manager to gate the streams. If
 the transfer results in exceeding the scope limits, then a error
 indicating "resource limit exceeded" is returned. The wrapped error
