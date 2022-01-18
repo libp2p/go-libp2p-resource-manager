@@ -49,6 +49,8 @@ const (
 type traceEvt struct {
 	Type int
 
+	Time string
+
 	Scope string `json:",omitempty"`
 
 	Limit interface{} `json:",omitempty"`
@@ -70,13 +72,15 @@ type traceEvt struct {
 	FD int `json:",omitempty"`
 }
 
-func (t *trace) push(evt interface{}) {
+func (t *trace) push(evt traceEvt) {
 	t.mx.Lock()
 	defer t.mx.Unlock()
 
 	if t.done {
 		return
 	}
+
+	evt.Time = time.Now().String()
 
 	t.pend = append(t.pend, evt)
 }
