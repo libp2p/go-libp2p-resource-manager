@@ -96,8 +96,9 @@ func (rc *resources) releaseMemory(size int64) {
 
 	// sanity check for bugs upstream
 	if rc.memory < 0 {
-		log.Warn("BUG: too much memory released")
-		rc.memory = 0
+		//log.Warn("BUG: too much memory released")
+		//rc.memory = 0
+		panic("BUG: too much memory released")
 	}
 }
 
