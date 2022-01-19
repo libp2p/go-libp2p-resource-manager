@@ -32,6 +32,9 @@ type resourceManager struct {
 	proto map[protocol.ID]*protocolScope
 	peer  map[peer.ID]*peerScope
 
+	stickyProto map[protocol.ID]struct{}
+	stickyPeer  map[peer.ID]struct{}
+
 	connId, streamId int64
 }
 
@@ -200,6 +203,16 @@ func (r *resourceManager) getProtocolScope(proto protocol.ID) *protocolScope {
 	return s
 }
 
+func (r *resourceManager) setStickyProtocol(proto protocol.ID) {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	if r.stickyProto == nil {
+		r.stickyProto = make(map[protocol.ID]struct{})
+	}
+	r.stickyProto[proto] = struct{}{}
+}
+
 func (r *resourceManager) getPeerScope(p peer.ID) *peerScope {
 	r.mx.Lock()
 	defer r.mx.Unlock()
@@ -212,6 +225,17 @@ func (r *resourceManager) getPeerScope(p peer.ID) *peerScope {
 
 	s.IncRef()
 	return s
+}
+
+func (r *resourceManager) setStickyPeer(p peer.ID) {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	if r.stickyPeer == nil {
+		r.stickyPeer = make(map[peer.ID]struct{})
+	}
+
+	r.stickyPeer[p] = struct{}{}
 }
 
 func (r *resourceManager) nextConnId() int64 {
@@ -285,6 +309,10 @@ func (r *resourceManager) gc() {
 	defer r.mx.Unlock()
 
 	for proto, s := range r.proto {
+		_, sticky := r.stickyProto[proto]
+		if sticky {
+			continue
+		}
 		if s.IsUnused() {
 			s.Done()
 			delete(r.proto, proto)
@@ -293,6 +321,11 @@ func (r *resourceManager) gc() {
 
 	var deadPeers []peer.ID
 	for p, s := range r.peer {
+		_, sticky := r.stickyPeer[p]
+		if sticky {
+			continue
+		}
+
 		if s.IsUnused() {
 			s.Done()
 			delete(r.peer, p)
