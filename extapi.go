@@ -51,6 +51,16 @@ func (s *resourceScope) SetLimit(limit Limit) {
 	s.rc.limit = limit
 }
 
+func (s *protocolScope) SetLimit(limit Limit) {
+	s.rcmgr.setStickyProtocol(s.proto)
+	s.resourceScope.SetLimit(limit)
+}
+
+func (s *peerScope) SetLimit(limit Limit) {
+	s.rcmgr.setStickyPeer(s.peer)
+	s.resourceScope.SetLimit(limit)
+}
+
 func (r *resourceManager) ListServices() []string {
 	r.mx.Lock()
 	defer r.mx.Unlock()
