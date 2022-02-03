@@ -291,6 +291,11 @@ func TestResourceManager(t *testing.T) {
 		checkResources(t, &s.rc, network.ScopeStat{NumConnsInbound: 1, NumFD: 1})
 	})
 
+	// check nility of current peer scope
+	if conn1.PeerScope() != nil {
+		t.Fatal("peer scope should be nil")
+	}
+
 	// attach to a peer
 	if err := conn1.SetPeer(peerA); err != nil {
 		t.Fatal(err)
@@ -435,6 +440,11 @@ func TestResourceManager(t *testing.T) {
 		checkResources(t, &s.rc, network.ScopeStat{NumStreamsInbound: 1})
 	})
 
+	// check nility of protocol scope
+	if stream1.ProtocolScope() != nil {
+		t.Fatal("protocol scope should be nil")
+	}
+
 	if err := stream1.SetProtocol(protoA); err != nil {
 		t.Fatal(err)
 	}
@@ -573,6 +583,11 @@ func TestResourceManager(t *testing.T) {
 		checkRefCnt(s, 1)
 		checkResources(t, &s.rc, network.ScopeStat{})
 	})
+
+	// check nility of current service scope
+	if stream1.ServiceScope() != nil {
+		t.Fatal("service scope should be nil")
+	}
 
 	// we should be able to attach stream1 and stream2 to svcA, but stream3 should fail due to limit
 	if err := stream1.SetService(svcA); err != nil {
