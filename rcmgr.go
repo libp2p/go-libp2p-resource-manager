@@ -474,6 +474,12 @@ func (s *peerScope) Peer() peer.ID {
 func (s *connectionScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
+
+	// avoid nil is not nil footgun; go....
+	if s.peer == nil {
+		return nil
+	}
+
 	return s.peer
 }
 
@@ -510,6 +516,12 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 func (s *streamScope) ProtocolScope() network.ProtocolScope {
 	s.Lock()
 	defer s.Unlock()
+
+	// avoid nil is not nil footgun; go....
+	if s.proto == nil {
+		return nil
+	}
+
 	return s.proto
 }
 
@@ -559,6 +571,12 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 func (s *streamScope) ServiceScope() network.ServiceScope {
 	s.Lock()
 	defer s.Unlock()
+
+	// avoid nil is not nil footgun; go....
+	if s.svc == nil {
+		return nil
+	}
+
 	return s.svc
 }
 
@@ -611,5 +629,11 @@ func (s *streamScope) SetService(svc string) error {
 func (s *streamScope) PeerScope() network.PeerScope {
 	s.Lock()
 	defer s.Unlock()
+
+	// avoid nil is not nil footgun; go....
+	if s.peer == nil {
+		return nil
+	}
+
 	return s.peer
 }
