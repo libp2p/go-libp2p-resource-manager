@@ -18,7 +18,8 @@ var log = logging.Logger("rcmgr")
 type resourceManager struct {
 	limits Limiter
 
-	trace *trace
+	trace   *trace
+	metrics *metrics
 
 	system    *systemScope
 	transient *transientScope
@@ -259,6 +260,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 
 	if err := conn.AddConn(dir, usefd); err != nil {
 		conn.Done()
+		r.metrics.BlockOpenConn(dir, usefd)
 		return nil, err
 	}
 
@@ -273,6 +275,7 @@ func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 	err := stream.AddStream(dir)
 	if err != nil {
 		stream.Done()
+		r.metrics.BlockOpenStream(p, dir)
 		return nil, err
 	}
 
@@ -497,6 +500,7 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 	if err := s.peer.ReserveForChild(stat); err != nil {
 		s.peer.DecRef()
 		s.peer = nil
+		s.rcmgr.metrics.BlockSetPeer(p)
 		return err
 	}
 
@@ -540,6 +544,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 	if err := s.proto.ReserveForChild(stat); err != nil {
 		s.proto.DecRef()
 		s.proto = nil
+		s.rcmgr.metrics.BlockSetProtocol(proto)
 		return err
 	}
 
@@ -550,6 +555,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 		s.proto = nil
 		s.peerProtoScope.DecRef()
 		s.peerProtoScope = nil
+		s.rcmgr.metrics.BlockSetProtocolPeer(proto, s.peer.peer)
 		return err
 	}
 
@@ -598,6 +604,7 @@ func (s *streamScope) SetService(svc string) error {
 	if err := s.svc.ReserveForChild(stat); err != nil {
 		s.svc.DecRef()
 		s.svc = nil
+		s.rcmgr.metrics.BlockSetService(svc)
 		return err
 	}
 
@@ -609,6 +616,7 @@ func (s *streamScope) SetService(svc string) error {
 		s.svc = nil
 		s.peerSvcScope.DecRef()
 		s.peerSvcScope = nil
+		s.rcmgr.metrics.BlockSetServicePeer(svc, s.peer.peer)
 		return err
 	}
 
