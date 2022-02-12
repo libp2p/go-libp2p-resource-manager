@@ -22,6 +22,8 @@ type MetricsReporter interface {
 	BlockService(svc string)
 	// BlockedServicePeer is invoekd when setting the service for a stream is blocked at the per service peer scope
 	BlockServicePeer(svc string, p peer.ID)
+	// BlockMemory is invoked when a memory reservation fails
+	BlockMemory(size int)
 }
 
 type metrics struct {
@@ -90,4 +92,12 @@ func (m *metrics) BlockServicePeer(svc string, p peer.ID) {
 	}
 
 	m.reporter.BlockServicePeer(svc, p)
+}
+
+func (m *metrics) BlockMemory(size int) {
+	if m == nil {
+		return
+	}
+
+	m.reporter.BlockMemory(size)
 }
