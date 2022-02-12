@@ -8,20 +8,20 @@ import (
 
 // MetricsReporter is an interface for collecting metrics from resource manager actions
 type MetricsReporter interface {
-	// BlockOpenConn is invoked when opening a connection is blocked
-	BlockOpenConn(dir network.Direction, usefd bool)
-	// BlockOpenStream is invoked when opening a stream is blocked
-	BlockOpenStream(p peer.ID, dir network.Direction)
-	// BlockSetPeer is invoked when attaching ac onnection to a peer is blocked
-	BlockSetPeer(p peer.ID)
-	// BlockSetProtocol is invoked when setting the protocol for a stream is blocked
-	BlockSetProtocol(proto protocol.ID)
-	// BlockedSetProtocolPeer is invoekd when setting the protocol for a stream is blocked at the per protocol peer scope
-	BlockSetProtocolPeer(proto protocol.ID, p peer.ID)
-	// BlockSetPService is invoked when setting the protocol for a stream is blocked
-	BlockSetService(svc string)
-	// BlockedSetServicePeer is invoekd when setting the service for a stream is blocked at the per service peer scope
-	BlockSetServicePeer(svc string, p peer.ID)
+	// BlockConn is invoked when opening a connection is blocked
+	BlockConn(dir network.Direction, usefd bool)
+	// BlockStream is invoked when opening a stream is blocked
+	BlockStream(p peer.ID, dir network.Direction)
+	// BlockPeer is invoked when attaching ac onnection to a peer is blocked
+	BlockPeer(p peer.ID)
+	// BlockProtocol is invoked when setting the protocol for a stream is blocked
+	BlockProtocol(proto protocol.ID)
+	// BlockedProtocolPeer is invoekd when setting the protocol for a stream is blocked at the per protocol peer scope
+	BlockProtocolPeer(proto protocol.ID, p peer.ID)
+	// BlockPService is invoked when setting the protocol for a stream is blocked
+	BlockService(svc string)
+	// BlockedServicePeer is invoekd when setting the service for a stream is blocked at the per service peer scope
+	BlockServicePeer(svc string, p peer.ID)
 }
 
 type metrics struct {
@@ -36,58 +36,58 @@ func WithMetrics(reporter MetricsReporter) Option {
 	}
 }
 
-func (m *metrics) BlockOpenConn(dir network.Direction, usefd bool) {
+func (m *metrics) BlockConn(dir network.Direction, usefd bool) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockOpenConn(dir, usefd)
+	m.reporter.BlockConn(dir, usefd)
 }
 
-func (m *metrics) BlockOpenStream(p peer.ID, dir network.Direction) {
+func (m *metrics) BlockStream(p peer.ID, dir network.Direction) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockOpenStream(p, dir)
+	m.reporter.BlockStream(p, dir)
 }
 
-func (m *metrics) BlockSetPeer(p peer.ID) {
+func (m *metrics) BlockPeer(p peer.ID) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockSetPeer(p)
+	m.reporter.BlockPeer(p)
 }
 
-func (m *metrics) BlockSetProtocol(proto protocol.ID) {
+func (m *metrics) BlockProtocol(proto protocol.ID) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockSetProtocol(proto)
+	m.reporter.BlockProtocol(proto)
 }
 
-func (m *metrics) BlockSetProtocolPeer(proto protocol.ID, p peer.ID) {
+func (m *metrics) BlockProtocolPeer(proto protocol.ID, p peer.ID) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockSetProtocolPeer(proto, p)
+	m.reporter.BlockProtocolPeer(proto, p)
 }
 
-func (m *metrics) BlockSetService(svc string) {
+func (m *metrics) BlockService(svc string) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockSetService(svc)
+	m.reporter.BlockService(svc)
 }
 
-func (m *metrics) BlockSetServicePeer(svc string, p peer.ID) {
+func (m *metrics) BlockServicePeer(svc string, p peer.ID) {
 	if m == nil {
 		return
 	}
 
-	m.reporter.BlockSetServicePeer(svc, p)
+	m.reporter.BlockServicePeer(svc, p)
 }
