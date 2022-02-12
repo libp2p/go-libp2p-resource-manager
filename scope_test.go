@@ -257,7 +257,7 @@ func TestResourceScopeSimple(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 
 	s.IncRef()
@@ -391,7 +391,7 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 
 	txn, err := s.BeginSpan()
@@ -428,7 +428,7 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 
 	txn1, err := s.BeginSpan()
@@ -472,7 +472,7 @@ func TestResourceScopeTxnTree(t *testing.T) {
 				FD:              1,
 			},
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 
 	txn1, err := s.BeginSpan()
@@ -583,7 +583,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              4,
 			},
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 	s2 := newResourceScope(
 		&StaticLimit{
@@ -598,7 +598,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s1}, "test", nil,
+		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s3 := newResourceScope(
 		&StaticLimit{
@@ -613,7 +613,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s1}, "test", nil,
+		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s4 := newResourceScope(
 		&StaticLimit{
@@ -628,7 +628,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s2, s3, s1}, "test", nil,
+		[]*resourceScope{s2, s3, s1}, "test", nil, nil,
 	)
 	s5 := newResourceScope(
 		&StaticLimit{
@@ -643,7 +643,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s2, s1}, "test", nil,
+		[]*resourceScope{s2, s1}, "test", nil, nil,
 	)
 	s6 := newResourceScope(
 		&StaticLimit{
@@ -658,7 +658,7 @@ func TestResourceScopeDAG(t *testing.T) {
 				FD:              2,
 			},
 		},
-		[]*resourceScope{s3, s1}, "test", nil,
+		[]*resourceScope{s3, s1}, "test", nil, nil,
 	)
 
 	if err := s4.ReserveMemory(1024, network.ReservationPriorityAlways); err != nil {
@@ -1098,37 +1098,37 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 		&StaticLimit{
 			Memory: 8192,
 		},
-		nil, "test", nil,
+		nil, "test", nil, nil,
 	)
 	s2 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*resourceScope{s1}, "test", nil,
+		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s3 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 2048,
 		},
-		[]*resourceScope{s1}, "test", nil,
+		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s4 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s2, s3, s1}, "test", nil,
+		[]*resourceScope{s2, s3, s1}, "test", nil, nil,
 	)
 	s5 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s2, s1}, "test", nil,
+		[]*resourceScope{s2, s1}, "test", nil, nil,
 	)
 	s6 := newResourceScope(
 		&StaticLimit{
 			Memory: 4096 + 1024,
 		},
-		[]*resourceScope{s3, s1}, "test", nil,
+		[]*resourceScope{s3, s1}, "test", nil, nil,
 	)
 
 	txn4, err := s4.BeginSpan()
