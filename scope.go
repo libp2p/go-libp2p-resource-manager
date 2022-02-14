@@ -254,6 +254,7 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 	}
 
 	s.trace.ReserveMemory(s.name, prio, int64(size), s.rc.memory)
+	s.metrics.AllowMemory(size)
 	return nil
 }
 

@@ -264,6 +264,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool) (net
 		return nil, err
 	}
 
+	r.metrics.AllowConn(dir, usefd)
 	return conn, nil
 }
 
@@ -279,6 +280,7 @@ func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 		return nil, err
 	}
 
+	r.metrics.AllowStream(p, dir)
 	return stream, nil
 }
 
@@ -526,6 +528,7 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 	}
 	s.resourceScope.edges = edges
 
+	s.rcmgr.metrics.AllowPeer(p)
 	return nil
 }
 
@@ -583,6 +586,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 	}
 	s.resourceScope.edges = edges
 
+	s.rcmgr.metrics.AllowProtocol(proto)
 	return nil
 }
 
@@ -643,6 +647,7 @@ func (s *streamScope) SetService(svc string) error {
 	}
 	s.resourceScope.edges = edges
 
+	s.rcmgr.metrics.AllowService(svc)
 	return nil
 }
 
