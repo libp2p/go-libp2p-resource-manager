@@ -32,22 +32,22 @@ func WithTrace(path string) Option {
 }
 
 const (
-	traceStartEvt = iota
-	traceCreateScopeEvt
-	traceDestroyScopeEvt
-	traceReserveMemoryEvt
-	traceBlockReserveMemoryEvt
-	traceReleaseMemoryEvt
-	traceAddStreamEvt
-	traceBlockAddStreamEvt
-	traceRemoveStreamEvt
-	traceAddConnEvt
-	traceBlockAddConnEvt
-	traceRemoveConnEvt
+	traceStartEvt              = "start"
+	traceCreateScopeEvt        = "create_scope"
+	traceDestroyScopeEvt       = "destroy_scope"
+	traceReserveMemoryEvt      = "reserve_memory"
+	traceBlockReserveMemoryEvt = "block_reserve_memory"
+	traceReleaseMemoryEvt      = "release_memory"
+	traceAddStreamEvt          = "add_stream"
+	traceBlockAddStreamEvt     = "block_add_stream"
+	traceRemoveStreamEvt       = "remove_stream"
+	traceAddConnEvt            = "add_conn"
+	traceBlockAddConnEvt       = "block_add_conn"
+	traceRemoveConnEvt         = "remove_conn"
 )
 
 type traceEvt struct {
-	Type int
+	Type string
 
 	Scope string `json:",omitempty"`
 
