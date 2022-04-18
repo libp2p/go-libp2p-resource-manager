@@ -280,7 +280,7 @@ func NewLimiterFromJSON(in io.Reader, defaults DefaultLimitConfig) (*BasicLimite
 	if len(cfg.Peer) > 0 {
 		limiter.PeerLimits = make(map[peer.ID]Limit, len(cfg.Peer))
 		for p, cfgLimit := range cfg.Peer {
-			pid, err := peer.IDFromString(p)
+			pid, err := peer.Decode(p)
 			if err != nil {
 				return nil, fmt.Errorf("invalid peer ID %s: %w", p, err)
 			}
