@@ -214,12 +214,12 @@ func NewLimiterFromJSON(in io.Reader, defaults DefaultLimitConfig) (*BasicLimite
 
 	limiter.DefaultServiceLimits, err = cfg.ServiceDefault.toLimit(defaults.ServiceBaseLimit, defaults.ServiceMemory)
 	if err != nil {
-		return nil, fmt.Errorf("invlaid default service limit: %w", err)
+		return nil, fmt.Errorf("invalid default service limit: %w", err)
 	}
 
 	limiter.DefaultServicePeerLimits, err = cfg.ServicePeerDefault.toLimit(defaults.ServicePeerBaseLimit, defaults.ServicePeerMemory)
 	if err != nil {
-		return nil, fmt.Errorf("invlaid default service peer limit: %w", err)
+		return nil, fmt.Errorf("invalid default service peer limit: %w", err)
 	}
 
 	if len(cfg.Service) > 0 {
@@ -244,12 +244,12 @@ func NewLimiterFromJSON(in io.Reader, defaults DefaultLimitConfig) (*BasicLimite
 
 	limiter.DefaultProtocolLimits, err = cfg.ProtocolDefault.toLimit(defaults.ProtocolBaseLimit, defaults.ProtocolMemory)
 	if err != nil {
-		return nil, fmt.Errorf("invlaid default protocol limit: %w", err)
+		return nil, fmt.Errorf("invalid default protocol limit: %w", err)
 	}
 
 	limiter.DefaultProtocolPeerLimits, err = cfg.ProtocolPeerDefault.toLimit(defaults.ProtocolPeerBaseLimit, defaults.ProtocolPeerMemory)
 	if err != nil {
-		return nil, fmt.Errorf("invlaid default protocol peer limit: %w", err)
+		return nil, fmt.Errorf("invalid default protocol peer limit: %w", err)
 	}
 
 	if len(cfg.Protocol) > 0 {
