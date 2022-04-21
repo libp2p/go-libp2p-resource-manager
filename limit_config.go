@@ -11,15 +11,15 @@ import (
 	"github.com/pbnjay/memory"
 )
 
-type limitConfig struct {
+type BasicLimitConfig struct {
 	// if true, then a dynamic limit is used
-	Dynamic bool
+	Dynamic bool `json:",omitempty"`
 	// either Memory is set for fixed memory limit
-	Memory int64
+	Memory int64 `json:",omitempty"`
 	// or the following 3 fields for computed memory limits
-	MinMemory      int64
-	MaxMemory      int64
-	MemoryFraction float64
+	MinMemory      int64   `json:",omitempty"`
+	MaxMemory      int64   `json:",omitempty"`
+	MemoryFraction float64 `json:",omitempty"`
 
 	StreamsInbound  int
 	StreamsOutbound int
@@ -32,7 +32,7 @@ type limitConfig struct {
 	FD int
 }
 
-func (cfg *limitConfig) toLimit(base BaseLimit, mem MemoryLimit) (Limit, error) {
+func (cfg *BasicLimitConfig) toLimit(base BaseLimit, mem MemoryLimit) (Limit, error) {
 	if cfg == nil {
 		m := mem.GetMemory(int64(memory.TotalMemory()))
 		return &StaticLimit{
@@ -111,7 +111,7 @@ func (cfg *limitConfig) toLimit(base BaseLimit, mem MemoryLimit) (Limit, error) 
 	}
 }
 
-func (cfg *limitConfig) toLimitFixed(base BaseLimit, mem int64) (Limit, error) {
+func (cfg *BasicLimitConfig) toLimitFixed(base BaseLimit, mem int64) (Limit, error) {
 	if cfg == nil {
 		return &StaticLimit{
 			Memory:    mem,
@@ -162,25 +162,25 @@ func (cfg *limitConfig) toLimitFixed(base BaseLimit, mem int64) (Limit, error) {
 	}
 }
 
-type limiterConfig struct {
-	System    *limitConfig
-	Transient *limitConfig
+type BasicLimiterConfig struct {
+	System    *BasicLimitConfig `json:",omitempty"`
+	Transient *BasicLimitConfig `json:",omitempty"`
 
-	ServiceDefault     *limitConfig
-	ServicePeerDefault *limitConfig
-	Service            map[string]limitConfig
-	ServicePeer        map[string]limitConfig
+	ServiceDefault     *BasicLimitConfig           `json:",omitempty"`
+	ServicePeerDefault *BasicLimitConfig           `json:",omitempty"`
+	Service            map[string]BasicLimitConfig `json:",omitempty"`
+	ServicePeer        map[string]BasicLimitConfig `json:",omitempty"`
 
-	ProtocolDefault     *limitConfig
-	ProtocolPeerDefault *limitConfig
-	Protocol            map[string]limitConfig
-	ProtocolPeer        map[string]limitConfig
+	ProtocolDefault     *BasicLimitConfig           `json:",omitempty"`
+	ProtocolPeerDefault *BasicLimitConfig           `json:",omitempty"`
+	Protocol            map[string]BasicLimitConfig `json:",omitempty"`
+	ProtocolPeer        map[string]BasicLimitConfig `json:",omitempty"`
 
-	PeerDefault *limitConfig
-	Peer        map[string]limitConfig
+	PeerDefault *BasicLimitConfig           `json:",omitempty"`
+	Peer        map[string]BasicLimitConfig `json:",omitempty"`
 
-	Conn   *limitConfig
-	Stream *limitConfig
+	Conn   *BasicLimitConfig `json:",omitempty"`
+	Stream *BasicLimitConfig `json:",omitempty"`
 }
 
 // NewDefaultLimiterFromJSON creates a new limiter by parsing a json configuration,
@@ -193,12 +193,16 @@ func NewDefaultLimiterFromJSON(in io.Reader) (*BasicLimiter, error) {
 func NewLimiterFromJSON(in io.Reader, defaults DefaultLimitConfig) (*BasicLimiter, error) {
 	jin := json.NewDecoder(in)
 
-	var cfg limiterConfig
+	var cfg BasicLimiterConfig
 
 	if err := jin.Decode(&cfg); err != nil {
 		return nil, err
 	}
 
+	return NewLimiter(cfg, defaults)
+}
+
+func NewLimiter(cfg BasicLimiterConfig, defaults DefaultLimitConfig) (*BasicLimiter, error) {
 	limiter := new(BasicLimiter)
 	var err error
 
