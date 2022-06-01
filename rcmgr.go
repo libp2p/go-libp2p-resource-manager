@@ -71,8 +71,6 @@ type protocolScope struct {
 
 	proto protocol.ID
 	rcmgr *resourceManager
-
-	peers map[peer.ID]*resourceScope
 }
 
 var _ network.ProtocolScope = (*protocolScope)(nil)
@@ -82,6 +80,8 @@ type peerScope struct {
 
 	peer  peer.ID
 	rcmgr *resourceManager
+
+	protocols map[protocol.ID]*resourceScope
 }
 
 var _ network.PeerScope = (*peerScope)(nil)
@@ -349,18 +349,6 @@ func (r *resourceManager) gc() {
 		}
 		s.Unlock()
 	}
-
-	for _, s := range r.proto {
-		s.Lock()
-		for _, p := range deadPeers {
-			ps, ok := s.peers[p]
-			if ok {
-				ps.Done()
-				delete(s.peers, p)
-			}
-		}
-		s.Unlock()
-	}
 }
 
 func newSystemScope(limit Limit, rcmgr *resourceManager) *systemScope {
@@ -461,31 +449,31 @@ func (s *protocolScope) Protocol() protocol.ID {
 	return s.proto
 }
 
-func (s *protocolScope) getPeerScope(p peer.ID) *resourceScope {
+func (s *peerScope) Peer() peer.ID {
+	return s.peer
+}
+
+func (s *peerScope) getProtocolScope(id protocol.ID) *resourceScope {
 	s.Lock()
 	defer s.Unlock()
 
-	ps, ok := s.peers[p]
+	ps, ok := s.protocols[id]
 	if ok {
 		ps.IncRef()
 		return ps
 	}
 
-	l := s.rcmgr.limits.GetProtocolPeerLimits(s.proto)
+	l := s.rcmgr.limits.GetProtocolPeerLimits(id)
 
-	if s.peers == nil {
-		s.peers = make(map[peer.ID]*resourceScope)
+	if s.protocols == nil {
+		s.protocols = make(map[protocol.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
-	s.peers[p] = ps
+	ps = newResourceScope(l, nil, fmt.Sprintf("%s.protocol:%s", s.name, id), s.rcmgr.trace, s.rcmgr.metrics)
+	s.protocols[id] = ps
 
 	ps.IncRef()
 	return ps
-}
-
-func (s *peerScope) Peer() peer.ID {
-	return s.peer
 }
 
 func (s *connectionScope) PeerScope() network.PeerScope {
@@ -563,7 +551,7 @@ func (s *streamScope) SetProtocol(proto protocol.ID) error {
 		return err
 	}
 
-	s.peerProtoScope = s.proto.getPeerScope(s.peer.peer)
+	s.peerProtoScope = s.peer.getProtocolScope(proto)
 	if err := s.peerProtoScope.ReserveForChild(stat); err != nil {
 		s.proto.ReleaseForChild(stat)
 		s.proto.DecRef()
