@@ -58,8 +58,8 @@ var _ network.ResourceScope = (*transientScope)(nil)
 type serviceScope struct {
 	*resourceScope
 
-	name  string
-	rcmgr *resourceManager
+	service string
+	rcmgr   *resourceManager
 
 	peers map[peer.ID]*resourceScope
 }
@@ -378,13 +378,13 @@ func newTransientScope(limit Limit, rcmgr *resourceManager) *transientScope {
 	}
 }
 
-func newServiceScope(name string, limit Limit, rcmgr *resourceManager) *serviceScope {
+func newServiceScope(service string, limit Limit, rcmgr *resourceManager) *serviceScope {
 	return &serviceScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			fmt.Sprintf("service:%s", name), rcmgr.trace, rcmgr.metrics),
-		name:  name,
-		rcmgr: rcmgr,
+			fmt.Sprintf("service:%s", service), rcmgr.trace, rcmgr.metrics),
+		service: service,
+		rcmgr:   rcmgr,
 	}
 }
 
@@ -431,7 +431,7 @@ func newStreamScope(dir network.Direction, limit Limit, peer *peerScope, rcmgr *
 }
 
 func (s *serviceScope) Name() string {
-	return s.name
+	return s.service
 }
 
 func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
@@ -444,7 +444,7 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 		return ps
 	}
 
-	l := s.rcmgr.limits.GetServicePeerLimits(s.name)
+	l := s.rcmgr.limits.GetServicePeerLimits(s.service)
 
 	if s.peers == nil {
 		s.peers = make(map[peer.ID]*resourceScope)
