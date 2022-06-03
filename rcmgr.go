@@ -450,7 +450,7 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
+	ps = newResourceScope(l, nil, fmt.Sprintf("service:%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
 	s.peers[p] = ps
 
 	ps.IncRef()
@@ -477,7 +477,7 @@ func (s *protocolScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
+	ps = newResourceScope(l, nil, fmt.Sprintf("protocol:%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
 	s.peers[p] = ps
 
 	ps.IncRef()
