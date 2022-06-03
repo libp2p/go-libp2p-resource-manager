@@ -58,7 +58,6 @@ var _ network.ResourceScope = (*transientScope)(nil)
 type serviceScope struct {
 	*resourceScope
 
-	name  string
 	rcmgr *resourceManager
 
 	peers map[peer.ID]*resourceScope
@@ -383,7 +382,6 @@ func newServiceScope(name string, limit Limit, rcmgr *resourceManager) *serviceS
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
 			fmt.Sprintf("service:%s", name), rcmgr.trace, rcmgr.metrics),
-		name:  name,
 		rcmgr: rcmgr,
 	}
 }
