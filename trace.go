@@ -232,6 +232,10 @@ func (t *trace) ReserveMemory(scope string, prio uint8, size, mem int64) {
 		return
 	}
 
+	if size == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:     traceReserveMemoryEvt,
 		Scope:    scope,
@@ -246,6 +250,10 @@ func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
 		return
 	}
 
+	if size == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:     traceBlockReserveMemoryEvt,
 		Scope:    scope,
@@ -257,6 +265,10 @@ func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
 
 func (t *trace) ReleaseMemory(scope string, size, mem int64) {
 	if t == nil {
+		return
+	}
+
+	if size == 0 {
 		return
 	}
 
@@ -339,6 +351,10 @@ func (t *trace) AddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreams
 		return
 	}
 
+	if deltaIn == 0 && deltaOut == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:       traceAddStreamEvt,
 		Scope:      scope,
@@ -354,6 +370,10 @@ func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nst
 		return
 	}
 
+	if deltaIn == 0 && deltaOut == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:       traceBlockAddStreamEvt,
 		Scope:      scope,
@@ -366,6 +386,10 @@ func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nst
 
 func (t *trace) RemoveStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
 	if t == nil {
+		return
+	}
+
+	if deltaIn == 0 && deltaOut == 0 {
 		return
 	}
 
@@ -465,6 +489,10 @@ func (t *trace) AddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nco
 		return
 	}
 
+	if deltaIn == 0 && deltaOut == 0 && deltafd == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:     traceAddConnEvt,
 		Scope:    scope,
@@ -482,6 +510,10 @@ func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn
 		return
 	}
 
+	if deltaIn == 0 && deltaOut == 0 && deltafd == 0 {
+		return
+	}
+
 	t.push(traceEvt{
 		Type:     traceBlockAddConnEvt,
 		Scope:    scope,
@@ -496,6 +528,10 @@ func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn
 
 func (t *trace) RemoveConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
+		return
+	}
+
+	if deltaIn == 0 && deltaOut == 0 && deltafd == 0 {
 		return
 	}
 
