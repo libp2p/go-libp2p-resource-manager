@@ -78,7 +78,7 @@ func (t *trace) push(evt traceEvt) {
 	if t.done {
 		return
 	}
-	evt.Time = time.Now().Format(time.RFC3339)
+	evt.Time = time.Now().Format(time.RFC3339Nano)
 
 	t.pend = append(t.pend, evt)
 }
