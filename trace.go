@@ -46,7 +46,7 @@ const (
 	traceRemoveConnEvt         = "remove_conn"
 )
 
-type traceEvt struct {
+type TraceEvt struct {
 	Time string
 	Type string
 
@@ -71,7 +71,7 @@ type traceEvt struct {
 	FD int `json:",omitempty"`
 }
 
-func (t *trace) push(evt traceEvt) {
+func (t *trace) push(evt TraceEvt) {
 	t.mx.Lock()
 	defer t.mx.Unlock()
 
@@ -176,7 +176,7 @@ func (t *trace) Start(limits Limiter) error {
 
 	go t.background(out)
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:  traceStartEvt,
 		Limit: limits,
 	})
@@ -209,7 +209,7 @@ func (t *trace) CreateScope(scope string, limit Limit) {
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:  traceCreateScopeEvt,
 		Scope: scope,
 		Limit: limit,
@@ -221,7 +221,7 @@ func (t *trace) DestroyScope(scope string) {
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:  traceDestroyScopeEvt,
 		Scope: scope,
 	})
@@ -236,7 +236,7 @@ func (t *trace) ReserveMemory(scope string, prio uint8, size, mem int64) {
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceReserveMemoryEvt,
 		Scope:    scope,
 		Priority: prio,
@@ -254,7 +254,7 @@ func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceBlockReserveMemoryEvt,
 		Scope:    scope,
 		Priority: prio,
@@ -272,7 +272,7 @@ func (t *trace) ReleaseMemory(scope string, size, mem int64) {
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:   traceReleaseMemoryEvt,
 		Scope:  scope,
 		Delta:  size,
@@ -292,7 +292,7 @@ func (t *trace) AddStream(scope string, dir network.Direction, nstreamsIn, nstre
 		deltaOut = 1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceAddStreamEvt,
 		Scope:      scope,
 		DeltaIn:    deltaIn,
@@ -314,7 +314,7 @@ func (t *trace) BlockAddStream(scope string, dir network.Direction, nstreamsIn, 
 		deltaOut = 1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceBlockAddStreamEvt,
 		Scope:      scope,
 		DeltaIn:    deltaIn,
@@ -336,7 +336,7 @@ func (t *trace) RemoveStream(scope string, dir network.Direction, nstreamsIn, ns
 		deltaOut = -1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceRemoveStreamEvt,
 		Scope:      scope,
 		DeltaIn:    deltaIn,
@@ -355,7 +355,7 @@ func (t *trace) AddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreams
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceAddStreamEvt,
 		Scope:      scope,
 		DeltaIn:    deltaIn,
@@ -374,7 +374,7 @@ func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nst
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceBlockAddStreamEvt,
 		Scope:      scope,
 		DeltaIn:    deltaIn,
@@ -393,7 +393,7 @@ func (t *trace) RemoveStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstre
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:       traceRemoveStreamEvt,
 		Scope:      scope,
 		DeltaIn:    -deltaIn,
@@ -418,7 +418,7 @@ func (t *trace) AddConn(scope string, dir network.Direction, usefd bool, nconnsI
 		deltafd = 1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceAddConnEvt,
 		Scope:    scope,
 		DeltaIn:  deltaIn,
@@ -445,7 +445,7 @@ func (t *trace) BlockAddConn(scope string, dir network.Direction, usefd bool, nc
 		deltafd = 1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceBlockAddConnEvt,
 		Scope:    scope,
 		DeltaIn:  deltaIn,
@@ -472,7 +472,7 @@ func (t *trace) RemoveConn(scope string, dir network.Direction, usefd bool, ncon
 		deltafd = -1
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceRemoveConnEvt,
 		Scope:    scope,
 		DeltaIn:  deltaIn,
@@ -493,7 +493,7 @@ func (t *trace) AddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nco
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceAddConnEvt,
 		Scope:    scope,
 		DeltaIn:  deltaIn,
@@ -514,7 +514,7 @@ func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceBlockAddConnEvt,
 		Scope:    scope,
 		DeltaIn:  deltaIn,
@@ -535,7 +535,7 @@ func (t *trace) RemoveConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, 
 		return
 	}
 
-	t.push(traceEvt{
+	t.push(TraceEvt{
 		Type:     traceRemoveConnEvt,
 		Scope:    scope,
 		DeltaIn:  -deltaIn,
