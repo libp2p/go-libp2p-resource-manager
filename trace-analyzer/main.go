@@ -114,6 +114,7 @@ func main() {
 
 type analyzer struct {
 	current map[string] /*scope*/ *Stat
+	conf    rcmgr.DefaultLimitConfig
 }
 
 func (a *analyzer) Run(inFile, outFile string) error {
@@ -164,7 +165,15 @@ func (a *analyzer) Run(inFile, outFile string) error {
 		}
 		w.Write(data)
 		wroteFirst = true
+
+		a.maybeUpdateConf(ev)
 	}
+
+	conf, err := json.Marshal(a.conf)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(conf))
 
 	return nil
 }
@@ -206,4 +215,67 @@ func (a *analyzer) processEvent(evt *rcmgr.TraceEvt) Evt {
 		ev.Peer = extractPeer(name)
 	}
 	return ev
+}
+
+func (a *analyzer) maybeUpdateConf(ev Evt) {
+	switch ev.Class {
+	case ClassSystem:
+		a.maybeUpdateBaseLimit(&a.conf.SystemBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.SystemMemory, ev.Stat)
+	case ClassTransient:
+		a.maybeUpdateBaseLimit(&a.conf.TransientBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.TransientMemory, ev.Stat)
+	case ClassService:
+		a.maybeUpdateBaseLimit(&a.conf.ServiceBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.ServiceMemory, ev.Stat)
+	case ClassServicePeer:
+		a.maybeUpdateBaseLimit(&a.conf.ServicePeerBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.ServicePeerMemory, ev.Stat)
+	case ClassProtocol:
+		a.maybeUpdateBaseLimit(&a.conf.ProtocolBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.ProtocolMemory, ev.Stat)
+	case ClassProtocolPeer:
+		a.maybeUpdateBaseLimit(&a.conf.ProtocolPeerBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.ProtocolPeerMemory, ev.Stat)
+	case ClassPeer:
+		a.maybeUpdateBaseLimit(&a.conf.PeerBaseLimit, ev.Stat)
+		a.maybeUpdateMemory(&a.conf.PeerMemory, ev.Stat)
+	case ClassConn:
+		a.maybeUpdateBaseLimit(&a.conf.ConnBaseLimit, ev.Stat)
+		if ev.Stat.Memory > a.conf.ConnMemory {
+			a.conf.ConnMemory = ev.Stat.Memory
+		}
+	case ClassStream:
+		a.maybeUpdateBaseLimit(&a.conf.StreamBaseLimit, ev.Stat)
+		if ev.Stat.Memory > a.conf.StreamMemory {
+			a.conf.StreamMemory = ev.Stat.Memory
+		}
+	}
+}
+
+func (a *analyzer) maybeUpdateBaseLimit(l *rcmgr.BaseLimit, stat Stat) {
+	if stat.FD > l.FD {
+		l.FD = stat.FD
+	}
+	if stat.StreamsOut > l.StreamsOutbound {
+		l.StreamsOutbound = stat.StreamsOut
+	}
+	if stat.StreamsIn > l.StreamsInbound {
+		l.StreamsInbound = stat.StreamsIn
+	}
+	if stat.ConnsOut > l.ConnsOutbound {
+		l.ConnsOutbound = stat.ConnsOut
+	}
+	if stat.ConnsIn > l.ConnsInbound {
+		l.ConnsInbound = stat.ConnsIn
+	}
+	l.Streams = l.StreamsInbound + l.StreamsOutbound
+	l.Conns = l.ConnsInbound + l.ConnsOutbound
+}
+
+func (a *analyzer) maybeUpdateMemory(l *rcmgr.MemoryLimit, stat Stat) {
+	l.MemoryFraction = 1
+	if stat.Memory > l.MaxMemory {
+		l.MaxMemory = stat.Memory
+	}
 }
