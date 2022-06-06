@@ -1,5 +1,7 @@
 package rcmgr
 
+import "math"
+
 // DefaultLimitConfig is a struct for configuring default limits.
 type DefaultLimitConfig struct {
 	SystemBaseLimit BaseLimit
@@ -159,4 +161,43 @@ var DefaultLimits = DefaultLimitConfig{
 	},
 
 	StreamMemory: 16 << 20,
+}
+
+var infiniteBaseLimit = BaseLimit{
+	Streams:         math.MaxInt,
+	StreamsInbound:  math.MaxInt,
+	StreamsOutbound: math.MaxInt,
+	Conns:           math.MaxInt,
+	ConnsInbound:    math.MaxInt,
+	ConnsOutbound:   math.MaxInt,
+	FD:              math.MaxInt,
+}
+
+var infiniteMemoryLimit = MemoryLimit{
+	MemoryFraction: 1,
+	MinMemory:      math.MaxInt64,
+	MaxMemory:      math.MaxInt64,
+}
+
+// InfiniteLimits are a limiter configuration that uses infinite limits, thus effectively not limiting anything.
+// Keep in mind that the operating system limits the number of file descriptors that an application can use.
+var InfiniteLimits = DefaultLimitConfig{
+	SystemBaseLimit:       infiniteBaseLimit,
+	SystemMemory:          infiniteMemoryLimit,
+	TransientBaseLimit:    infiniteBaseLimit,
+	TransientMemory:       infiniteMemoryLimit,
+	ServiceBaseLimit:      infiniteBaseLimit,
+	ServiceMemory:         infiniteMemoryLimit,
+	ServicePeerBaseLimit:  infiniteBaseLimit,
+	ServicePeerMemory:     infiniteMemoryLimit,
+	ProtocolBaseLimit:     infiniteBaseLimit,
+	ProtocolMemory:        infiniteMemoryLimit,
+	ProtocolPeerBaseLimit: infiniteBaseLimit,
+	ProtocolPeerMemory:    infiniteMemoryLimit,
+	PeerBaseLimit:         infiniteBaseLimit,
+	PeerMemory:            infiniteMemoryLimit,
+	ConnBaseLimit:         infiniteBaseLimit,
+	ConnMemory:            math.MaxInt64,
+	StreamBaseLimit:       infiniteBaseLimit,
+	StreamMemory:          math.MaxInt64,
 }
