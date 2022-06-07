@@ -1,11 +1,9 @@
 package rcmgr
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"io"
-	"os"
 	"sync"
 	"time"
 
@@ -13,7 +11,7 @@ import (
 )
 
 type trace struct {
-	path string
+	out io.WriteCloser
 
 	ctx    context.Context
 	cancel func()
@@ -24,9 +22,9 @@ type trace struct {
 	pend []interface{}
 }
 
-func WithTrace(path string) Option {
+func WithTrace(out io.WriteCloser) Option {
 	return func(r *resourceManager) error {
-		r.trace = &trace{path: path}
+		r.trace = &trace{out: out}
 		return nil
 	}
 }
@@ -83,14 +81,11 @@ func (t *trace) push(evt TraceEvt) {
 	t.pend = append(t.pend, evt)
 }
 
-func (t *trace) background(out io.WriteCloser) {
+func (t *trace) background() {
 	defer close(t.closed)
-	defer out.Close()
+	defer t.out.Close()
 
-	gzOut := gzip.NewWriter(out)
-	defer gzOut.Close()
-
-	jsonOut := json.NewEncoder(gzOut)
+	jsonOut := json.NewEncoder(t.out)
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -121,15 +116,6 @@ func (t *trace) background(out io.WriteCloser) {
 				t.mx.Unlock()
 				return
 			}
-
-			if err := gzOut.Flush(); err != nil {
-				log.Warnf("error flushing rcmgr trace: %s", err)
-				t.mx.Lock()
-				t.done = true
-				t.mx.Unlock()
-				return
-			}
-
 		case <-t.ctx.Done():
 			getEvents()
 
@@ -141,11 +127,6 @@ func (t *trace) background(out io.WriteCloser) {
 				log.Warnf("error writing rcmgr trace: %s", err)
 				return
 			}
-
-			if err := gzOut.Flush(); err != nil {
-				log.Warnf("error flushing rcmgr trace: %s", err)
-			}
-
 			return
 		}
 	}
@@ -169,12 +150,7 @@ func (t *trace) Start(limits Limiter) error {
 	t.ctx, t.cancel = context.WithCancel(context.Background())
 	t.closed = make(chan struct{})
 
-	out, err := os.OpenFile(t.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return nil
-	}
-
-	go t.background(out)
+	go t.background()
 
 	t.push(TraceEvt{
 		Type:  traceStartEvt,
