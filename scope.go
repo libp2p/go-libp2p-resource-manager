@@ -1,10 +1,13 @@
 package rcmgr
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 )
 
 // resources tracks the current state of resource consumption
@@ -16,6 +19,95 @@ type resources struct {
 	nfd                     int
 
 	memory int64
+}
+
+type scopeName struct {
+	IsSystem, IsTransient    bool
+	ConnID, StreamID, SpanID int64
+	Service                  string
+	Protocol                 protocol.ID
+	Peer                     peer.ID
+}
+
+func addToClass(cl, str string) string {
+	if cl == "" {
+		return str
+	}
+	return cl + "-" + str
+}
+
+func (s scopeName) MarshalJSON() ([]byte, error) {
+	var class string
+	if s.IsSystem {
+		class = "system"
+	}
+	if s.IsTransient {
+		class = "transient"
+	}
+	if s.Service != "" {
+		class = "service"
+	}
+	if s.Protocol != "" {
+		class = "protocol"
+	}
+	if s.Peer != "" {
+		class = addToClass(class, "peer")
+	}
+	if s.ConnID > 0 {
+		class = "conn"
+	}
+	if s.StreamID > 0 {
+		class = "stream"
+	}
+	if s.SpanID > 0 {
+		class = addToClass(class, "span")
+	}
+	return json.Marshal(struct {
+		Class    string `json:"class,omitempty"`
+		Service  string `json:"service,omitempty"`
+		Protocol string `json:"protocol,omitempty"`
+		Peer     string `json:"peer,omitempty"`
+		Conn     int64  `json:"conn,omitempty"`
+		Stream   int64  `json:"stream,omitempty"`
+		Span     int64  `json:"span,omitempty"`
+	}{
+		Class:    class,
+		Service:  s.Service,
+		Protocol: string(s.Protocol),
+		Peer:     s.Peer.String(),
+		Conn:     s.ConnID,
+		Stream:   s.StreamID,
+		Span:     s.SpanID,
+	})
+}
+
+func (s scopeName) String() string {
+	var name string
+	if s.IsSystem {
+		name = "system"
+	}
+	if s.IsTransient {
+		name = "transient"
+	}
+	if s.Service != "" {
+		name = "service"
+	}
+	if s.Protocol != "" {
+		name = "protocol"
+	}
+	if s.Peer != "" {
+		name = addToClass(name, "peer:"+s.Peer.String())
+	}
+	if s.ConnID > 0 {
+		name = fmt.Sprintf("conn-%d", s.ConnID)
+	}
+	if s.StreamID > 0 {
+		name = fmt.Sprintf("stream-%d", s.StreamID)
+	}
+	if s.SpanID > 0 {
+		name = addToClass(name, fmt.Sprintf("span:%d", s.SpanID))
+	}
+	return name
 }
 
 // A resourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
@@ -32,21 +124,21 @@ type resourceScope struct {
 	done   bool
 	refCnt int
 
-	spanID int
+	spanID int64
 
 	rc    resources
 	owner *resourceScope   // set in span scopes, which define trees
 	edges []*resourceScope // set in DAG scopes, it's the linearized parent set
 
-	name    string   // for debugging purposes
-	trace   *trace   // debug tracing
-	metrics *metrics // metrics collection
+	name    scopeName // for debugging purposes
+	trace   *trace    // debug tracing
+	metrics *metrics  // metrics collection
 }
 
 var _ network.ResourceScope = (*resourceScope)(nil)
 var _ network.ResourceScopeSpan = (*resourceScope)(nil)
 
-func newResourceScope(limit Limit, edges []*resourceScope, name string, trace *trace, metrics *metrics) *resourceScope {
+func newResourceScope(limit Limit, edges []*resourceScope, name scopeName, trace *trace, metrics *metrics) *resourceScope {
 	for _, e := range edges {
 		e.IncRef()
 	}
@@ -61,11 +153,13 @@ func newResourceScope(limit Limit, edges []*resourceScope, name string, trace *t
 	return r
 }
 
-func newResourceScopeSpan(owner *resourceScope, id int) *resourceScope {
+func newResourceScopeSpan(owner *resourceScope, id int64) *resourceScope {
+	sn := owner.name
+	sn.SpanID = id
 	r := &resourceScope{
 		rc:      resources{limit: owner.rc.limit},
 		owner:   owner,
-		name:    fmt.Sprintf("%s.span-%d", owner.name, id),
+		name:    sn,
 		trace:   owner.trace,
 		metrics: owner.metrics,
 	}
@@ -229,7 +323,7 @@ func (rc *resources) stat() network.ScopeStat {
 
 // resourceScope implementation
 func (s *resourceScope) wrapError(err error) error {
-	return fmt.Errorf("%s: %w", s.name, err)
+	return fmt.Errorf("%s: %w", s.name.String(), err)
 }
 
 func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
@@ -612,7 +706,7 @@ func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 	s.trace.RemoveConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
-func (s *resourceScope) nextSpanID() int {
+func (s *resourceScope) nextSpanID() int64 {
 	s.spanID++
 	return s.spanID
 }

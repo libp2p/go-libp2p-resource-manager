@@ -50,7 +50,7 @@ type TraceEvt struct {
 	Time string
 	Type string
 
-	Scope string `json:",omitempty"`
+	Scope scopeName
 
 	Limit interface{} `json:",omitempty"`
 
@@ -204,7 +204,7 @@ func (t *trace) Close() error {
 	return nil
 }
 
-func (t *trace) CreateScope(scope string, limit Limit) {
+func (t *trace) CreateScope(scope scopeName, limit Limit) {
 	if t == nil {
 		return
 	}
@@ -216,7 +216,7 @@ func (t *trace) CreateScope(scope string, limit Limit) {
 	})
 }
 
-func (t *trace) DestroyScope(scope string) {
+func (t *trace) DestroyScope(scope scopeName) {
 	if t == nil {
 		return
 	}
@@ -227,7 +227,7 @@ func (t *trace) DestroyScope(scope string) {
 	})
 }
 
-func (t *trace) ReserveMemory(scope string, prio uint8, size, mem int64) {
+func (t *trace) ReserveMemory(scope scopeName, prio uint8, size, mem int64) {
 	if t == nil {
 		return
 	}
@@ -245,7 +245,7 @@ func (t *trace) ReserveMemory(scope string, prio uint8, size, mem int64) {
 	})
 }
 
-func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
+func (t *trace) BlockReserveMemory(scope scopeName, prio uint8, size, mem int64) {
 	if t == nil {
 		return
 	}
@@ -263,7 +263,7 @@ func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
 	})
 }
 
-func (t *trace) ReleaseMemory(scope string, size, mem int64) {
+func (t *trace) ReleaseMemory(scope scopeName, size, mem int64) {
 	if t == nil {
 		return
 	}
@@ -280,7 +280,7 @@ func (t *trace) ReleaseMemory(scope string, size, mem int64) {
 	})
 }
 
-func (t *trace) AddStream(scope string, dir network.Direction, nstreamsIn, nstreamsOut int) {
+func (t *trace) AddStream(scope scopeName, dir network.Direction, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -302,7 +302,7 @@ func (t *trace) AddStream(scope string, dir network.Direction, nstreamsIn, nstre
 	})
 }
 
-func (t *trace) BlockAddStream(scope string, dir network.Direction, nstreamsIn, nstreamsOut int) {
+func (t *trace) BlockAddStream(scope scopeName, dir network.Direction, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -324,7 +324,7 @@ func (t *trace) BlockAddStream(scope string, dir network.Direction, nstreamsIn, 
 	})
 }
 
-func (t *trace) RemoveStream(scope string, dir network.Direction, nstreamsIn, nstreamsOut int) {
+func (t *trace) RemoveStream(scope scopeName, dir network.Direction, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -346,7 +346,7 @@ func (t *trace) RemoveStream(scope string, dir network.Direction, nstreamsIn, ns
 	})
 }
 
-func (t *trace) AddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
+func (t *trace) AddStreams(scope scopeName, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -365,7 +365,7 @@ func (t *trace) AddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreams
 	})
 }
 
-func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
+func (t *trace) BlockAddStreams(scope scopeName, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -384,7 +384,7 @@ func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nst
 	})
 }
 
-func (t *trace) RemoveStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
+func (t *trace) RemoveStreams(scope scopeName, deltaIn, deltaOut, nstreamsIn, nstreamsOut int) {
 	if t == nil {
 		return
 	}
@@ -403,7 +403,7 @@ func (t *trace) RemoveStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstre
 	})
 }
 
-func (t *trace) AddConn(scope string, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) AddConn(scope scopeName, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}
@@ -430,7 +430,7 @@ func (t *trace) AddConn(scope string, dir network.Direction, usefd bool, nconnsI
 	})
 }
 
-func (t *trace) BlockAddConn(scope string, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) BlockAddConn(scope scopeName, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}
@@ -457,7 +457,7 @@ func (t *trace) BlockAddConn(scope string, dir network.Direction, usefd bool, nc
 	})
 }
 
-func (t *trace) RemoveConn(scope string, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) RemoveConn(scope scopeName, dir network.Direction, usefd bool, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}
@@ -484,7 +484,7 @@ func (t *trace) RemoveConn(scope string, dir network.Direction, usefd bool, ncon
 	})
 }
 
-func (t *trace) AddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) AddConns(scope scopeName, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}
@@ -505,7 +505,7 @@ func (t *trace) AddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nco
 	})
 }
 
-func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) BlockAddConns(scope scopeName, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}
@@ -526,7 +526,7 @@ func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn
 	})
 }
 
-func (t *trace) RemoveConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
+func (t *trace) RemoveConns(scope scopeName, deltaIn, deltaOut, deltafd, nconnsIn, nconnsOut, nfd int) {
 	if t == nil {
 		return
 	}

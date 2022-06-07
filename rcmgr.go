@@ -365,7 +365,7 @@ func (r *resourceManager) gc() {
 
 func newSystemScope(limit Limit, rcmgr *resourceManager) *systemScope {
 	return &systemScope{
-		resourceScope: newResourceScope(limit, nil, "system", rcmgr.trace, rcmgr.metrics),
+		resourceScope: newResourceScope(limit, nil, scopeName{IsSystem: true}, rcmgr.trace, rcmgr.metrics),
 	}
 }
 
@@ -373,7 +373,7 @@ func newTransientScope(limit Limit, rcmgr *resourceManager) *transientScope {
 	return &transientScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			"transient", rcmgr.trace, rcmgr.metrics),
+			scopeName{IsTransient: true}, rcmgr.trace, rcmgr.metrics),
 		system: rcmgr.system,
 	}
 }
@@ -382,7 +382,7 @@ func newServiceScope(service string, limit Limit, rcmgr *resourceManager) *servi
 	return &serviceScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			fmt.Sprintf("service:%s", service), rcmgr.trace, rcmgr.metrics),
+			scopeName{Service: service}, rcmgr.trace, rcmgr.metrics),
 		service: service,
 		rcmgr:   rcmgr,
 	}
@@ -392,7 +392,7 @@ func newProtocolScope(proto protocol.ID, limit Limit, rcmgr *resourceManager) *p
 	return &protocolScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			fmt.Sprintf("protocol:%s", proto), rcmgr.trace, rcmgr.metrics),
+			scopeName{Protocol: proto}, rcmgr.trace, rcmgr.metrics),
 		proto: proto,
 		rcmgr: rcmgr,
 	}
@@ -402,7 +402,7 @@ func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 	return &peerScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			fmt.Sprintf("peer:%s", p), rcmgr.trace, rcmgr.metrics),
+			scopeName{Peer: p}, rcmgr.trace, rcmgr.metrics),
 		peer:  p,
 		rcmgr: rcmgr,
 	}
@@ -412,7 +412,7 @@ func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *r
 	return &connectionScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope},
-			fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
+			scopeName{ConnID: rcmgr.nextConnId()}, rcmgr.trace, rcmgr.metrics),
 		dir:   dir,
 		usefd: usefd,
 		rcmgr: rcmgr,
@@ -423,7 +423,7 @@ func newStreamScope(dir network.Direction, limit Limit, peer *peerScope, rcmgr *
 	return &streamScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{peer.resourceScope, rcmgr.transient.resourceScope, rcmgr.system.resourceScope},
-			fmt.Sprintf("stream-%d", rcmgr.nextStreamId()), rcmgr.trace, rcmgr.metrics),
+			scopeName{StreamID: rcmgr.nextStreamId()}, rcmgr.trace, rcmgr.metrics),
 		dir:   dir,
 		rcmgr: peer.rcmgr,
 		peer:  peer,
@@ -450,7 +450,9 @@ func (s *serviceScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
+	sn := s.name
+	sn.Peer = p
+	ps = newResourceScope(l, nil, sn, s.rcmgr.trace, s.rcmgr.metrics)
 	s.peers[p] = ps
 
 	ps.IncRef()
@@ -477,7 +479,9 @@ func (s *protocolScope) getPeerScope(p peer.ID) *resourceScope {
 		s.peers = make(map[peer.ID]*resourceScope)
 	}
 
-	ps = newResourceScope(l, nil, fmt.Sprintf("%s.peer:%s", s.name, p), s.rcmgr.trace, s.rcmgr.metrics)
+	sn := s.name
+	sn.Peer = p
+	ps = newResourceScope(l, nil, sn, s.rcmgr.trace, s.rcmgr.metrics)
 	s.peers[p] = ps
 
 	ps.IncRef()
