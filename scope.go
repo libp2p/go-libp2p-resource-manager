@@ -32,6 +32,8 @@ type resourceScope struct {
 	done   bool
 	refCnt int
 
+	spanID int
+
 	rc    resources
 	owner *resourceScope   // set in span scopes, which define trees
 	edges []*resourceScope // set in DAG scopes, it's the linearized parent set
@@ -59,11 +61,11 @@ func newResourceScope(limit Limit, edges []*resourceScope, name string, trace *t
 	return r
 }
 
-func newResourceScopeSpan(owner *resourceScope) *resourceScope {
+func newResourceScopeSpan(owner *resourceScope, id int) *resourceScope {
 	r := &resourceScope{
 		rc:      resources{limit: owner.rc.limit},
 		owner:   owner,
-		name:    fmt.Sprintf("%s.span", owner.name),
+		name:    fmt.Sprintf("%s.span-%d", owner.name, id),
 		trace:   owner.trace,
 		metrics: owner.metrics,
 	}
@@ -610,6 +612,11 @@ func (s *resourceScope) ReleaseResources(st network.ScopeStat) {
 	s.trace.RemoveConns(s.name, st.NumConnsInbound, st.NumConnsOutbound, st.NumFD, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 }
 
+func (s *resourceScope) nextSpanID() int {
+	s.spanID++
+	return s.spanID
+}
+
 func (s *resourceScope) BeginSpan() (network.ResourceScopeSpan, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -619,7 +626,7 @@ func (s *resourceScope) BeginSpan() (network.ResourceScopeSpan, error) {
 	}
 
 	s.refCnt++
-	return newResourceScopeSpan(s), nil
+	return newResourceScopeSpan(s, s.nextSpanID()), nil
 }
 
 func (s *resourceScope) Done() {
