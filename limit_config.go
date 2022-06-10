@@ -10,8 +10,6 @@ import (
 )
 
 type BasicLimitConfig struct {
-	// if true, then a dynamic limit is used
-	Dynamic bool `json:",omitempty"`
 	// either Memory is set for fixed memory limit
 	Memory int64 `json:",omitempty"`
 	// or the following 3 fields for computed memory limits
@@ -67,26 +65,6 @@ func (cfg *BasicLimitConfig) toLimit(base BaseLimit, mem MemoryLimit) (Limit, er
 			Memory:    cfg.Memory,
 			BaseLimit: base,
 		}, nil
-
-	case cfg.Dynamic:
-		if cfg.MemoryFraction < 0 {
-			return nil, fmt.Errorf("negative memory fraction: %f", cfg.MemoryFraction)
-		}
-		if cfg.MemoryFraction > 0 {
-			mem.MemoryFraction = cfg.MemoryFraction
-		}
-		if cfg.MinMemory > 0 {
-			mem.MinMemory = cfg.MinMemory
-		}
-		if cfg.MaxMemory > 0 {
-			mem.MaxMemory = cfg.MaxMemory
-		}
-
-		return &DynamicLimit{
-			MemoryLimit: mem,
-			BaseLimit:   base,
-		}, nil
-
 	default:
 		if cfg.MemoryFraction < 0 {
 			return nil, fmt.Errorf("negative memory fraction: %f", cfg.MemoryFraction)
@@ -145,10 +123,6 @@ func (cfg *BasicLimitConfig) toLimitFixed(base BaseLimit, mem int64) (Limit, err
 			Memory:    cfg.Memory,
 			BaseLimit: base,
 		}, nil
-
-	case cfg.Dynamic:
-		return nil, fmt.Errorf("cannot specify dynamic limit for fixed memory limit")
-
 	default:
 		if cfg.MemoryFraction > 0 || cfg.MinMemory > 0 || cfg.MaxMemory > 0 {
 			return nil, fmt.Errorf("cannot specify dynamic range for fixed memory limit")
