@@ -1,10 +1,20 @@
 package rcmgr
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestFileDescriptorCounting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("can't read file descriptors on Windows")
+	}
+	n := getNumFDs()
+	require.NotZero(t, n)
+	require.Less(t, n, int(1e6))
+}
 
 func TestScaling(t *testing.T) {
 	base := BaseLimit{

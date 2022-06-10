@@ -5,6 +5,8 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+
+	"github.com/pbnjay/memory"
 )
 
 type baseLimitConfig struct {
@@ -176,6 +178,13 @@ func (cfg *ScalingLimitConfig) Scale(memory int64, numFD int) LimitConfig {
 	return lc
 }
 
+func (cfg *ScalingLimitConfig) AutoScale() LimitConfig {
+	return cfg.Scale(
+		int64(memory.TotalMemory())/8,
+		getNumFDs()/2,
+	)
+}
+
 // factor is the number of MBs above the minimum (128 MB)
 func scale(base BaseLimit, inc BaseLimitIncrease, factor int, numFD int) BaseLimit {
 	l := BaseLimit{
@@ -188,7 +197,7 @@ func scale(base BaseLimit, inc BaseLimitIncrease, factor int, numFD int) BaseLim
 		Memory:          base.Memory + (inc.Memory*int64(factor))>>10,
 		FD:              base.FD,
 	}
-	if inc.FDFraction > 0 {
+	if inc.FDFraction > 0 && numFD > 0 {
 		l.FD = int(inc.FDFraction * float64(numFD))
 	}
 	return l

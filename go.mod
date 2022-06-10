@@ -6,8 +6,10 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/libp2p/go-libp2p-core v0.19.0
 	github.com/multiformats/go-multiaddr v0.6.0
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/stretchr/testify v1.8.0
 	go.opencensus.io v0.23.0
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 )
 
 require (
@@ -37,6 +39,5 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf // indirect
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
