@@ -1,9 +1,7 @@
 package rcmgr
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -181,25 +179,6 @@ type BasicLimiterConfig struct {
 
 	Conn   *BasicLimitConfig `json:",omitempty"`
 	Stream *BasicLimitConfig `json:",omitempty"`
-}
-
-// NewDefaultLimiterFromJSON creates a new limiter by parsing a json configuration,
-// using the default limits for fallback.
-func NewDefaultLimiterFromJSON(in io.Reader) (*BasicLimiter, error) {
-	return NewLimiterFromJSON(in, DefaultLimits)
-}
-
-// NewLimiterFromJSON creates a new limiter by parsing a json configuration.
-func NewLimiterFromJSON(in io.Reader, defaults DefaultLimitConfig) (*BasicLimiter, error) {
-	jin := json.NewDecoder(in)
-
-	var cfg BasicLimiterConfig
-
-	if err := jin.Decode(&cfg); err != nil {
-		return nil, err
-	}
-
-	return NewLimiter(cfg, defaults)
 }
 
 func NewLimiter(cfg BasicLimiterConfig, defaults DefaultLimitConfig) (*BasicLimiter, error) {
