@@ -6,7 +6,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/multiformats/go-multiaddr"
 )
+
+var dummyMA, _ = multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/1234")
 
 func TestResourceManager(t *testing.T) {
 	peerA := peer.ID("A")
@@ -242,7 +245,7 @@ func TestResourceManager(t *testing.T) {
 	})
 
 	// open an inbound connection, using an fd
-	conn, err := mgr.OpenConnection(network.DirInbound, true)
+	conn, err := mgr.OpenConnection(network.DirInbound, true, dummyMA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,10 +260,10 @@ func TestResourceManager(t *testing.T) {
 	})
 
 	// the connection is transient, we shouldn't be able to open a second one
-	if _, err := mgr.OpenConnection(network.DirInbound, true); err == nil {
+	if _, err := mgr.OpenConnection(network.DirInbound, true, dummyMA); err == nil {
 		t.Fatal("expected OpenConnection to fail")
 	}
-	if _, err := mgr.OpenConnection(network.DirInbound, false); err == nil {
+	if _, err := mgr.OpenConnection(network.DirInbound, false, dummyMA); err == nil {
 		t.Fatal("expected OpenConnection to fail")
 	}
 
@@ -277,7 +280,7 @@ func TestResourceManager(t *testing.T) {
 	})
 
 	// open another inbound connection, using an fd
-	conn1, err := mgr.OpenConnection(network.DirInbound, true)
+	conn1, err := mgr.OpenConnection(network.DirInbound, true, dummyMA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +318,7 @@ func TestResourceManager(t *testing.T) {
 	})
 
 	// we should be able to open a second transient connection now
-	conn2, err := mgr.OpenConnection(network.DirInbound, true)
+	conn2, err := mgr.OpenConnection(network.DirInbound, true, dummyMA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +353,7 @@ func TestResourceManager(t *testing.T) {
 	// close it and reopen without using an FD -- we should be able to attach now
 	conn2.Done()
 
-	conn2, err = mgr.OpenConnection(network.DirInbound, false)
+	conn2, err = mgr.OpenConnection(network.DirInbound, false, dummyMA)
 	if err != nil {
 		t.Fatal(err)
 	}
