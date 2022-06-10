@@ -20,19 +20,6 @@ type Limit interface {
 	GetConnTotalLimit() int
 	// GetFDLimit returns the file descriptor limit.
 	GetFDLimit() int
-
-	// WithMemoryLimit creates a copy of this limit object, with memory limit adjusted to
-	// the specified memFraction of its current value, bounded by minMemory and maxMemory.
-	WithMemoryLimit(memFraction float64, minMemory, maxMemory int64) Limit
-	// WithStreamLimit creates a copy of this limit object, with stream limits adjusted
-	// as specified.
-	WithStreamLimit(numStreamsIn, numStreamsOut, numStreams int) Limit
-	// WithConnLimit creates a copy of this limit object, with connetion limits adjusted
-	// as specified.
-	WithConnLimit(numConnsIn, numConnsOut, numConns int) Limit
-	// WithFDLimit creates a copy of this limit object, with file descriptor limits adjusted
-	// as specified
-	WithFDLimit(numFD int) Limit
 }
 
 // Limiter is the interface for providing limits to the resource manager.
@@ -48,25 +35,16 @@ type Limiter interface {
 	GetConnLimits() Limit
 }
 
-// BasicLimiter is a limiter with fixed limits.
-type BasicLimiter struct {
-	SystemLimits              Limit
-	TransientLimits           Limit
-	DefaultServiceLimits      Limit
-	DefaultServicePeerLimits  Limit
-	ServiceLimits             map[string]Limit
-	ServicePeerLimits         map[string]Limit
-	DefaultProtocolLimits     Limit
-	DefaultProtocolPeerLimits Limit
-	ProtocolLimits            map[protocol.ID]Limit
-	ProtocolPeerLimits        map[protocol.ID]Limit
-	DefaultPeerLimits         Limit
-	PeerLimits                map[peer.ID]Limit
-	ConnLimits                Limit
-	StreamLimits              Limit
+// fixedLimiter is a limiter with fixed limits.
+type fixedLimiter struct {
+	LimitConfig
 }
 
-var _ Limiter = (*BasicLimiter)(nil)
+var _ Limiter = (*fixedLimiter)(nil)
+
+func NewFixedLimiter(conf LimitConfig) Limiter {
+	return &fixedLimiter{LimitConfig: conf}
+}
 
 // BaseLimit is a mixin type for basic resource limits.
 type BaseLimit struct {
@@ -77,13 +55,19 @@ type BaseLimit struct {
 	ConnsInbound    int
 	ConnsOutbound   int
 	FD              int
+	Memory          int64
 }
 
-// MemoryLimit is a mixin type for memory limits
-type MemoryLimit struct {
-	MemoryFraction float64
-	MinMemory      int64
-	MaxMemory      int64
+// BaseLimitIncrease is the increase per GB of system memory.
+type BaseLimitIncrease struct {
+	Streams         int
+	StreamsInbound  int
+	StreamsOutbound int
+	Conns           int
+	ConnsInbound    int
+	ConnsOutbound   int
+	Memory          int64
+	FDFraction      float64
 }
 
 func (l *BaseLimit) GetStreamLimit(dir network.Direction) int {
@@ -114,74 +98,62 @@ func (l *BaseLimit) GetFDLimit() int {
 	return l.FD
 }
 
-func (l *BasicLimiter) GetSystemLimits() Limit {
-	return l.SystemLimits
+func (l *BaseLimit) GetMemoryLimit() int64 {
+	return l.Memory
 }
 
-func (l *BasicLimiter) GetTransientLimits() Limit {
-	return l.TransientLimits
+func (l *fixedLimiter) GetSystemLimits() Limit {
+	return &l.SystemLimit
 }
 
-func (l *BasicLimiter) GetServiceLimits(svc string) Limit {
+func (l *fixedLimiter) GetTransientLimits() Limit {
+	return &l.TransientLimit
+}
+
+func (l *fixedLimiter) GetServiceLimits(svc string) Limit {
 	sl, ok := l.ServiceLimits[svc]
 	if !ok {
-		return l.DefaultServiceLimits
+		return &l.DefaultServiceLimit
 	}
-	return sl
+	return &sl
 }
 
-func (l *BasicLimiter) GetServicePeerLimits(svc string) Limit {
+func (l *fixedLimiter) GetServicePeerLimits(svc string) Limit {
 	pl, ok := l.ServicePeerLimits[svc]
 	if !ok {
-		return l.DefaultServicePeerLimits
+		return &l.DefaultServicePeerLimit
 	}
-	return pl
+	return &pl
 }
 
-func (l *BasicLimiter) GetProtocolLimits(proto protocol.ID) Limit {
+func (l *fixedLimiter) GetProtocolLimits(proto protocol.ID) Limit {
 	pl, ok := l.ProtocolLimits[proto]
 	if !ok {
-		return l.DefaultProtocolLimits
+		return &l.DefaultProtocolLimit
 	}
-	return pl
+	return &pl
 }
 
-func (l *BasicLimiter) GetProtocolPeerLimits(proto protocol.ID) Limit {
+func (l *fixedLimiter) GetProtocolPeerLimits(proto protocol.ID) Limit {
 	pl, ok := l.ProtocolPeerLimits[proto]
 	if !ok {
-		return l.DefaultProtocolPeerLimits
+		return &l.DefaultProtocolPeerLimit
 	}
-	return pl
+	return &pl
 }
 
-func (l *BasicLimiter) GetPeerLimits(p peer.ID) Limit {
+func (l *fixedLimiter) GetPeerLimits(p peer.ID) Limit {
 	pl, ok := l.PeerLimits[p]
 	if !ok {
-		return l.DefaultPeerLimits
+		return &l.DefaultPeerLimit
 	}
-	return pl
+	return &pl
 }
 
-func (l *BasicLimiter) GetStreamLimits(p peer.ID) Limit {
-	return l.StreamLimits
+func (l *fixedLimiter) GetStreamLimits(_ peer.ID) Limit {
+	return &l.StreamLimit
 }
 
-func (l *BasicLimiter) GetConnLimits() Limit {
-	return l.ConnLimits
-}
-
-func (l *MemoryLimit) GetMemory(memoryCap int64) int64 {
-	return memoryLimit(memoryCap, l.MemoryFraction, l.MinMemory, l.MaxMemory)
-}
-
-func memoryLimit(memoryCap int64, memFraction float64, minMemory, maxMemory int64) int64 {
-	memoryCap = int64(float64(memoryCap) * memFraction)
-	switch {
-	case memoryCap < minMemory:
-		return minMemory
-	case memoryCap > maxMemory:
-		return maxMemory
-	default:
-		return memoryCap
-	}
+func (l *fixedLimiter) GetConnLimits() Limit {
+	return &l.ConnLimit
 }

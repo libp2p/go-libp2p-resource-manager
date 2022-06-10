@@ -20,167 +20,138 @@ func TestResourceManager(t *testing.T) {
 	svcA := "A.svc"
 	svcB := "B.svc"
 	nmgr, err := NewResourceManager(
-		&BasicLimiter{
-			SystemLimits: &StaticLimit{
-				Memory: 16384,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  3,
-					StreamsOutbound: 3,
-					Streams:         6,
-					ConnsInbound:    3,
-					ConnsOutbound:   3,
-					Conns:           6,
-					FD:              2,
-				},
+		NewFixedLimiter(LimitConfig{
+			SystemLimit: BaseLimit{
+				Memory:          16384,
+				StreamsInbound:  3,
+				StreamsOutbound: 3,
+				Streams:         6,
+				ConnsInbound:    3,
+				ConnsOutbound:   3,
+				Conns:           6,
+				FD:              2,
 			},
-			TransientLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  1,
-					StreamsOutbound: 1,
-					Streams:         2,
-					ConnsInbound:    1,
-					ConnsOutbound:   1,
-					Conns:           2,
+			TransientLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  1,
+				StreamsOutbound: 1,
+				Streams:         2,
+				ConnsInbound:    1,
+				ConnsOutbound:   1,
+				Conns:           2,
+				FD:              1,
+			},
+			DefaultServiceLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  1,
+				StreamsOutbound: 1,
+				Streams:         2,
+				ConnsInbound:    1,
+				ConnsOutbound:   1,
+				Conns:           2,
+				FD:              1,
+			},
+			DefaultServicePeerLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  5,
+				StreamsOutbound: 5,
+				Streams:         10,
+			},
+			ServiceLimits: map[string]BaseLimit{
+				svcA: {
+					Memory:          8192,
+					StreamsInbound:  2,
+					StreamsOutbound: 2,
+					Streams:         4,
+					ConnsInbound:    2,
+					ConnsOutbound:   2,
+					Conns:           4,
+					FD:              1,
+				},
+				svcB: {
+					Memory:          8192,
+					StreamsInbound:  2,
+					StreamsOutbound: 2,
+					Streams:         4,
+					ConnsInbound:    2,
+					ConnsOutbound:   2,
+					Conns:           4,
 					FD:              1,
 				},
 			},
-			DefaultServiceLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
+			ServicePeerLimits: map[string]BaseLimit{
+				svcB: {
+					Memory:          8192,
 					StreamsInbound:  1,
 					StreamsOutbound: 1,
 					Streams:         2,
-					ConnsInbound:    1,
-					ConnsOutbound:   1,
-					Conns:           2,
+				},
+			},
+			DefaultProtocolLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  1,
+				StreamsOutbound: 1,
+				Streams:         2,
+			},
+			ProtocolLimits: map[protocol.ID]BaseLimit{
+				protoA: {
+					Memory:          8192,
+					StreamsInbound:  2,
+					StreamsOutbound: 2,
+					Streams:         2,
+				},
+			},
+			ProtocolPeerLimits: map[protocol.ID]BaseLimit{
+				protoB: {
+					Memory:          8192,
+					StreamsInbound:  1,
+					StreamsOutbound: 1,
+					Streams:         2,
+				},
+			},
+			DefaultPeerLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  1,
+				StreamsOutbound: 1,
+				Streams:         2,
+				ConnsInbound:    1,
+				ConnsOutbound:   1,
+				Conns:           2,
+				FD:              1,
+			},
+			DefaultProtocolPeerLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  5,
+				StreamsOutbound: 5,
+				Streams:         10,
+			},
+			PeerLimits: map[peer.ID]BaseLimit{
+				peerA: {
+					Memory:          8192,
+					StreamsInbound:  2,
+					StreamsOutbound: 2,
+					Streams:         4,
+					ConnsInbound:    2,
+					ConnsOutbound:   2,
+					Conns:           4,
 					FD:              1,
 				},
 			},
-			DefaultServicePeerLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  5,
-					StreamsOutbound: 5,
-					Streams:         10,
-				},
+			ConnLimit: BaseLimit{
+				Memory:        4096,
+				ConnsInbound:  1,
+				ConnsOutbound: 1,
+				Conns:         1,
+				FD:            1,
 			},
-			ServiceLimits: map[string]Limit{
-				svcA: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  2,
-						StreamsOutbound: 2,
-						Streams:         4,
-						ConnsInbound:    2,
-						ConnsOutbound:   2,
-						Conns:           4,
-						FD:              1,
-					},
-				},
-				svcB: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  2,
-						StreamsOutbound: 2,
-						Streams:         4,
-						ConnsInbound:    2,
-						ConnsOutbound:   2,
-						Conns:           4,
-						FD:              1,
-					},
-				},
+			StreamLimit: BaseLimit{
+				Memory:          4096,
+				StreamsInbound:  1,
+				StreamsOutbound: 1,
+				Streams:         1,
 			},
-			ServicePeerLimits: map[string]Limit{
-				svcB: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  1,
-						StreamsOutbound: 1,
-						Streams:         2,
-					},
-				},
-			},
-			DefaultProtocolLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  1,
-					StreamsOutbound: 1,
-					Streams:         2,
-				},
-			},
-			ProtocolLimits: map[protocol.ID]Limit{
-				protoA: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  2,
-						StreamsOutbound: 2,
-						Streams:         2,
-					},
-				},
-			},
-			ProtocolPeerLimits: map[protocol.ID]Limit{
-				protoB: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  1,
-						StreamsOutbound: 1,
-						Streams:         2,
-					},
-				},
-			},
-			DefaultPeerLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  1,
-					StreamsOutbound: 1,
-					Streams:         2,
-					ConnsInbound:    1,
-					ConnsOutbound:   1,
-					Conns:           2,
-					FD:              1,
-				},
-			},
-			DefaultProtocolPeerLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  5,
-					StreamsOutbound: 5,
-					Streams:         10,
-				},
-			},
-			PeerLimits: map[peer.ID]Limit{
-				peerA: &StaticLimit{
-					Memory: 8192,
-					BaseLimit: BaseLimit{
-						StreamsInbound:  2,
-						StreamsOutbound: 2,
-						Streams:         4,
-						ConnsInbound:    2,
-						ConnsOutbound:   2,
-						Conns:           4,
-						FD:              1,
-					},
-				},
-			},
-			ConnLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					ConnsInbound:  1,
-					ConnsOutbound: 1,
-					Conns:         1,
-					FD:            1,
-				},
-			},
-			StreamLimits: &StaticLimit{
-				Memory: 4096,
-				BaseLimit: BaseLimit{
-					StreamsInbound:  1,
-					StreamsOutbound: 1,
-					Streams:         1,
-				},
-			},
-		})
+		}),
+	)
 
 	if err != nil {
 		t.Fatal(err)
@@ -1006,10 +977,14 @@ func TestResourceManager(t *testing.T) {
 func TestResourceManagerWithAllowlist(t *testing.T) {
 	peerA := test.RandPeerIDFatal(t)
 
-	limits := NewDefaultLimiter()
-	limits.SystemLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
-	limits.TransientLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
-	rcmgr, err := NewResourceManager(limits, WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
+	limits := DefaultLimits.Scale(1<<30, 100)
+	limits.SystemLimit.Conns = 0
+	limits.SystemLimit.ConnsInbound = 0
+	limits.SystemLimit.ConnsOutbound = 0
+	limits.TransientLimit.Conns = 0
+	limits.TransientLimit.ConnsInbound = 0
+	limits.TransientLimit.ConnsOutbound = 0
+	rcmgr, err := NewResourceManager(NewFixedLimiter(limits), WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
 		multiaddr.StringCast("/ip4/1.2.3.4"),
 		multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()),
 	}))
@@ -1021,9 +996,18 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 		// Setup allowlist. TODO, replace this with a config once config changes are in
 		r := rcmgr.(*resourceManager)
 
-		r.allowlistedSystem = newSystemScope(limits.GetSystemLimits().WithConnLimit(2, 1, 2), r, "allowlistedSystem")
+		sysLimit := limits.SystemLimit
+		sysLimit.Conns = 2
+		sysLimit.ConnsInbound = 2
+		sysLimit.ConnsOutbound = 1
+		r.allowlistedSystem = newSystemScope(&sysLimit, r, "allowlistedSystem")
 		r.allowlistedSystem.IncRef()
-		r.allowlistedTransient = newTransientScope(limits.GetTransientLimits().WithConnLimit(1, 1, 1), r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
+
+		transLimit := limits.TransientLimit
+		transLimit.Conns = 1
+		transLimit.ConnsInbound = 1
+		transLimit.ConnsOutbound = 1
+		r.allowlistedTransient = newTransientScope(&transLimit, r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
 		r.allowlistedTransient.IncRef()
 	}
 

@@ -30,17 +30,15 @@ func checkResources(t *testing.T, rc *resources, st network.ScopeStat) {
 }
 
 func TestResources(t *testing.T) {
-	rc := resources{limit: &StaticLimit{
-		Memory: 4096,
-		BaseLimit: BaseLimit{
-			StreamsInbound:  1,
-			StreamsOutbound: 1,
-			Streams:         1,
-			ConnsInbound:    1,
-			ConnsOutbound:   1,
-			Conns:           1,
-			FD:              1,
-		},
+	rc := resources{limit: &BaseLimit{
+		Memory:          4096,
+		StreamsInbound:  1,
+		StreamsOutbound: 1,
+		Streams:         1,
+		ConnsInbound:    1,
+		ConnsOutbound:   1,
+		Conns:           1,
+		FD:              1,
 	}}
 
 	checkResources(t, &rc, network.ScopeStat{})
@@ -245,17 +243,15 @@ func TestResources(t *testing.T) {
 
 func TestResourceScopeSimple(t *testing.T) {
 	s := newResourceScope(
-		&StaticLimit{
-			Memory: 4096,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				Streams:         1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				Conns:           1,
-				FD:              1,
-			},
+		&BaseLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			Streams:         1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			Conns:           1,
+			FD:              1,
 		},
 		nil, "test", nil, nil,
 	)
@@ -379,17 +375,15 @@ func testResourceScopeBasic(t *testing.T, s *resourceScope) {
 
 func TestResourceScopeTxnBasic(t *testing.T) {
 	s := newResourceScope(
-		&StaticLimit{
-			Memory: 4096,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				Streams:         1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				Conns:           1,
-				FD:              1,
-			},
+		&BaseLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			Streams:         1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			Conns:           1,
+			FD:              1,
 		},
 		nil, "test", nil, nil,
 	)
@@ -416,17 +410,15 @@ func TestResourceScopeTxnBasic(t *testing.T) {
 
 func TestResourceScopeTxnZombie(t *testing.T) {
 	s := newResourceScope(
-		&StaticLimit{
-			Memory: 4096,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				Streams:         1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				Conns:           1,
-				FD:              1,
-			},
+		&BaseLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			Streams:         1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			Conns:           1,
+			FD:              1,
 		},
 		nil, "test", nil, nil,
 	)
@@ -460,17 +452,15 @@ func TestResourceScopeTxnZombie(t *testing.T) {
 
 func TestResourceScopeTxnTree(t *testing.T) {
 	s := newResourceScope(
-		&StaticLimit{
-			Memory: 4096,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  1,
-				StreamsOutbound: 1,
-				Streams:         1,
-				ConnsInbound:    1,
-				ConnsOutbound:   1,
-				Conns:           1,
-				FD:              1,
-			},
+		&BaseLimit{
+			Memory:          4096,
+			StreamsInbound:  1,
+			StreamsOutbound: 1,
+			Streams:         1,
+			ConnsInbound:    1,
+			ConnsOutbound:   1,
+			Conns:           1,
+			FD:              1,
 		},
 		nil, "test", nil, nil,
 	)
@@ -571,92 +561,80 @@ func TestResourceScopeDAG(t *testing.T) {
 	//          \
 	//           ------> s6
 	s1 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  4,
-				StreamsOutbound: 4,
-				Streams:         4,
-				ConnsInbound:    4,
-				ConnsOutbound:   4,
-				Conns:           4,
-				FD:              4,
-			},
+		&BaseLimit{
+			Memory:          4096,
+			StreamsInbound:  4,
+			StreamsOutbound: 4,
+			Streams:         4,
+			ConnsInbound:    4,
+			ConnsOutbound:   4,
+			Conns:           4,
+			FD:              4,
 		},
 		nil, "test", nil, nil,
 	)
 	s2 := newResourceScope(
-		&StaticLimit{
-			Memory: 2048,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  2,
-				StreamsOutbound: 2,
-				Streams:         2,
-				ConnsInbound:    2,
-				ConnsOutbound:   2,
-				Conns:           2,
-				FD:              2,
-			},
+		&BaseLimit{
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			Streams:         2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			Conns:           2,
+			FD:              2,
 		},
 		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s3 := newResourceScope(
-		&StaticLimit{
-			Memory: 2048,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  2,
-				StreamsOutbound: 2,
-				Streams:         2,
-				ConnsInbound:    2,
-				ConnsOutbound:   2,
-				Conns:           2,
-				FD:              2,
-			},
+		&BaseLimit{
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			Streams:         2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			Conns:           2,
+			FD:              2,
 		},
 		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s4 := newResourceScope(
-		&StaticLimit{
-			Memory: 2048,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  2,
-				StreamsOutbound: 2,
-				Streams:         2,
-				ConnsInbound:    2,
-				ConnsOutbound:   2,
-				Conns:           2,
-				FD:              2,
-			},
+		&BaseLimit{
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			Streams:         2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			Conns:           2,
+			FD:              2,
 		},
 		[]*resourceScope{s2, s3, s1}, "test", nil, nil,
 	)
 	s5 := newResourceScope(
-		&StaticLimit{
-			Memory: 2048,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  2,
-				StreamsOutbound: 2,
-				Streams:         2,
-				ConnsInbound:    2,
-				ConnsOutbound:   2,
-				Conns:           2,
-				FD:              2,
-			},
+		&BaseLimit{
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			Streams:         2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			Conns:           2,
+			FD:              2,
 		},
 		[]*resourceScope{s2, s1}, "test", nil, nil,
 	)
 	s6 := newResourceScope(
-		&StaticLimit{
-			Memory: 2048,
-			BaseLimit: BaseLimit{
-				StreamsInbound:  2,
-				StreamsOutbound: 2,
-				Streams:         2,
-				ConnsInbound:    2,
-				ConnsOutbound:   2,
-				Conns:           2,
-				FD:              2,
-			},
+		&BaseLimit{
+			Memory:          2048,
+			StreamsInbound:  2,
+			StreamsOutbound: 2,
+			Streams:         2,
+			ConnsInbound:    2,
+			ConnsOutbound:   2,
+			Conns:           2,
+			FD:              2,
 		},
 		[]*resourceScope{s3, s1}, "test", nil, nil,
 	)
@@ -1095,39 +1073,27 @@ func TestResourceScopeDAGTxn(t *testing.T) {
 	//          \
 	//           ------> s6
 	s1 := newResourceScope(
-		&StaticLimit{
-			Memory: 8192,
-		},
+		&BaseLimit{Memory: 8192},
 		nil, "test", nil, nil,
 	)
 	s2 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096 + 2048,
-		},
+		&BaseLimit{Memory: 4096 + 2048},
 		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s3 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096 + 2048,
-		},
+		&BaseLimit{Memory: 4096 + 2048},
 		[]*resourceScope{s1}, "test", nil, nil,
 	)
 	s4 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096 + 1024,
-		},
+		&BaseLimit{Memory: 4096 + 1024},
 		[]*resourceScope{s2, s3, s1}, "test", nil, nil,
 	)
 	s5 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096 + 1024,
-		},
+		&BaseLimit{Memory: 4096 + 1024},
 		[]*resourceScope{s2, s1}, "test", nil, nil,
 	)
 	s6 := newResourceScope(
-		&StaticLimit{
-			Memory: 4096 + 1024,
-		},
+		&BaseLimit{Memory: 4096 + 1024},
 		[]*resourceScope{s3, s1}, "test", nil, nil,
 	)
 
