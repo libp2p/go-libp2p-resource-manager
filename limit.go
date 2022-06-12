@@ -70,6 +70,7 @@ type fixedLimiter struct {
 var _ Limiter = (*fixedLimiter)(nil)
 
 func NewFixedLimiter(conf LimitConfig) Limiter {
+	log.Debugw("initializing new limiter with config", "limits", conf)
 	return &fixedLimiter{LimitConfig: conf}
 }
 
