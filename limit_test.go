@@ -31,7 +31,7 @@ func TestScaling(t *testing.T) {
 	t.Run("no scaling if no increase is defined", func(t *testing.T) {
 		cfg := ScalingLimitConfig{ServiceBaseLimit: base}
 		scaled := cfg.Scale(8<<30, 100)
-		require.Equal(t, base, scaled.DefaultServiceLimit)
+		require.Equal(t, base, scaled.ServiceDefault)
 	})
 
 	t.Run("scaling", func(t *testing.T) {
@@ -49,14 +49,14 @@ func TestScaling(t *testing.T) {
 			},
 		}
 		scaled := cfg.Scale(128<<20+4<<30, 1000)
-		require.Equal(t, 500, scaled.TransientLimit.FD)
-		require.Equal(t, base.Streams+4, scaled.TransientLimit.Streams)
-		require.Equal(t, base.StreamsInbound+4*2, scaled.TransientLimit.StreamsInbound)
-		require.Equal(t, base.StreamsOutbound+4*3, scaled.TransientLimit.StreamsOutbound)
-		require.Equal(t, base.Conns+4*4, scaled.TransientLimit.Conns)
-		require.Equal(t, base.ConnsInbound+4*5, scaled.TransientLimit.ConnsInbound)
-		require.Equal(t, base.ConnsOutbound+4*6, scaled.TransientLimit.ConnsOutbound)
-		require.Equal(t, base.Memory+4*7, scaled.TransientLimit.Memory)
+		require.Equal(t, 500, scaled.Transient.FD)
+		require.Equal(t, base.Streams+4, scaled.Transient.Streams)
+		require.Equal(t, base.StreamsInbound+4*2, scaled.Transient.StreamsInbound)
+		require.Equal(t, base.StreamsOutbound+4*3, scaled.Transient.StreamsOutbound)
+		require.Equal(t, base.Conns+4*4, scaled.Transient.Conns)
+		require.Equal(t, base.ConnsInbound+4*5, scaled.Transient.ConnsInbound)
+		require.Equal(t, base.ConnsOutbound+4*6, scaled.Transient.ConnsOutbound)
+		require.Equal(t, base.Memory+4*7, scaled.Transient.Memory)
 	})
 
 	t.Run("scaling limits in maps", func(t *testing.T) {
@@ -73,15 +73,16 @@ func TestScaling(t *testing.T) {
 		}
 		scaled := cfg.Scale(128<<20+4<<30, 1000)
 
-		require.Len(t, scaled.ServiceLimits, 2)
-		require.Contains(t, scaled.ServiceLimits, "A")
-		require.Equal(t, 10, scaled.ServiceLimits["A"].Streams)
-		require.Equal(t, int64(100), scaled.ServiceLimits["A"].Memory)
-		require.Equal(t, 9, scaled.ServiceLimits["A"].FD)
+		require.Len(t, scaled.Service, 2)
+		require.Contains(t, scaled.Service, "A")
+		require.Equal(t, 10, scaled.Service["A"].Streams)
+		require.Equal(t, int64(100), scaled.Service["A"].Memory)
+		require.Equal(t, 9, scaled.Service["A"].FD)
 
-		require.Contains(t, scaled.ServiceLimits, "B")
-		require.Equal(t, 20+4*2, scaled.ServiceLimits["B"].Streams)
-		require.Equal(t, int64(200+4*3), scaled.ServiceLimits["B"].Memory)
-		require.Equal(t, 400, scaled.ServiceLimits["B"].FD)
+		require.Contains(t, scaled.Service, "B")
+		require.Equal(t, 20+4*2, scaled.Service["B"].Streams)
+		require.Equal(t, int64(200+4*3), scaled.Service["B"].Memory)
+		require.Equal(t, 400, scaled.Service["B"].FD)
+
 	})
 }

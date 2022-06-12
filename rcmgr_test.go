@@ -21,7 +21,7 @@ func TestResourceManager(t *testing.T) {
 	svcB := "B.svc"
 	nmgr, err := NewResourceManager(
 		NewFixedLimiter(LimitConfig{
-			SystemLimit: BaseLimit{
+			System: BaseLimit{
 				Memory:          16384,
 				StreamsInbound:  3,
 				StreamsOutbound: 3,
@@ -31,7 +31,7 @@ func TestResourceManager(t *testing.T) {
 				Conns:           6,
 				FD:              2,
 			},
-			TransientLimit: BaseLimit{
+			Transient: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
@@ -41,7 +41,7 @@ func TestResourceManager(t *testing.T) {
 				Conns:           2,
 				FD:              1,
 			},
-			DefaultServiceLimit: BaseLimit{
+			ServiceDefault: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
@@ -51,13 +51,13 @@ func TestResourceManager(t *testing.T) {
 				Conns:           2,
 				FD:              1,
 			},
-			DefaultServicePeerLimit: BaseLimit{
+			ServicePeerDefault: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  5,
 				StreamsOutbound: 5,
 				Streams:         10,
 			},
-			ServiceLimits: map[string]BaseLimit{
+			Service: map[string]BaseLimit{
 				svcA: {
 					Memory:          8192,
 					StreamsInbound:  2,
@@ -79,7 +79,7 @@ func TestResourceManager(t *testing.T) {
 					FD:              1,
 				},
 			},
-			ServicePeerLimits: map[string]BaseLimit{
+			ServicePeer: map[string]BaseLimit{
 				svcB: {
 					Memory:          8192,
 					StreamsInbound:  1,
@@ -87,13 +87,13 @@ func TestResourceManager(t *testing.T) {
 					Streams:         2,
 				},
 			},
-			DefaultProtocolLimit: BaseLimit{
+			ProtocolDefault: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
 				Streams:         2,
 			},
-			ProtocolLimits: map[protocol.ID]BaseLimit{
+			Protocol: map[protocol.ID]BaseLimit{
 				protoA: {
 					Memory:          8192,
 					StreamsInbound:  2,
@@ -101,7 +101,7 @@ func TestResourceManager(t *testing.T) {
 					Streams:         2,
 				},
 			},
-			ProtocolPeerLimits: map[protocol.ID]BaseLimit{
+			ProtocolPeer: map[protocol.ID]BaseLimit{
 				protoB: {
 					Memory:          8192,
 					StreamsInbound:  1,
@@ -109,7 +109,7 @@ func TestResourceManager(t *testing.T) {
 					Streams:         2,
 				},
 			},
-			DefaultPeerLimit: BaseLimit{
+			PeerDefault: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
@@ -119,13 +119,13 @@ func TestResourceManager(t *testing.T) {
 				Conns:           2,
 				FD:              1,
 			},
-			DefaultProtocolPeerLimit: BaseLimit{
+			ProtocolPeerDefault: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  5,
 				StreamsOutbound: 5,
 				Streams:         10,
 			},
-			PeerLimits: map[peer.ID]BaseLimit{
+			Peer: map[peer.ID]BaseLimit{
 				peerA: {
 					Memory:          8192,
 					StreamsInbound:  2,
@@ -137,14 +137,14 @@ func TestResourceManager(t *testing.T) {
 					FD:              1,
 				},
 			},
-			ConnLimit: BaseLimit{
+			Conn: BaseLimit{
 				Memory:        4096,
 				ConnsInbound:  1,
 				ConnsOutbound: 1,
 				Conns:         1,
 				FD:            1,
 			},
-			StreamLimit: BaseLimit{
+			Stream: BaseLimit{
 				Memory:          4096,
 				StreamsInbound:  1,
 				StreamsOutbound: 1,
@@ -978,12 +978,12 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 	peerA := test.RandPeerIDFatal(t)
 
 	limits := DefaultLimits.Scale(1<<30, 100)
-	limits.SystemLimit.Conns = 0
-	limits.SystemLimit.ConnsInbound = 0
-	limits.SystemLimit.ConnsOutbound = 0
-	limits.TransientLimit.Conns = 0
-	limits.TransientLimit.ConnsInbound = 0
-	limits.TransientLimit.ConnsOutbound = 0
+	limits.System.Conns = 0
+	limits.System.ConnsInbound = 0
+	limits.System.ConnsOutbound = 0
+	limits.Transient.Conns = 0
+	limits.Transient.ConnsInbound = 0
+	limits.Transient.ConnsOutbound = 0
 	rcmgr, err := NewResourceManager(NewFixedLimiter(limits), WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
 		multiaddr.StringCast("/ip4/1.2.3.4"),
 		multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()),
@@ -996,14 +996,14 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 		// Setup allowlist. TODO, replace this with a config once config changes are in
 		r := rcmgr.(*resourceManager)
 
-		sysLimit := limits.SystemLimit
+		sysLimit := limits.System
 		sysLimit.Conns = 2
 		sysLimit.ConnsInbound = 2
 		sysLimit.ConnsOutbound = 1
 		r.allowlistedSystem = newSystemScope(&sysLimit, r, "allowlistedSystem")
 		r.allowlistedSystem.IncRef()
 
-		transLimit := limits.TransientLimit
+		transLimit := limits.Transient
 		transLimit.Conns = 1
 		transLimit.ConnsInbound = 1
 		transLimit.ConnsOutbound = 1

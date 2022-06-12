@@ -1,6 +1,9 @@
 package rcmgr
 
 import (
+	"encoding/json"
+	"io"
+
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -33,6 +36,30 @@ type Limiter interface {
 	GetPeerLimits(p peer.ID) Limit
 	GetStreamLimits(p peer.ID) Limit
 	GetConnLimits() Limit
+}
+
+// NewDefaultLimiterFromJSON creates a new limiter by parsing a json configuration,
+// using the default limits for fallback.
+func NewDefaultLimiterFromJSON(in io.Reader) (Limiter, error) {
+	return NewLimiterFromJSON(in, DefaultLimits.AutoScale())
+}
+
+// NewLimiterFromJSON creates a new limiter by parsing a json configuration.
+func NewLimiterFromJSON(in io.Reader, defaults LimitConfig) (Limiter, error) {
+	cfg, err := readLimiterConfigFromJSON(in, defaults)
+	if err != nil {
+		return nil, err
+	}
+	return &fixedLimiter{cfg}, nil
+}
+
+func readLimiterConfigFromJSON(in io.Reader, defaults LimitConfig) (LimitConfig, error) {
+	var cfg LimitConfig
+	if err := json.NewDecoder(in).Decode(&cfg); err != nil {
+		return LimitConfig{}, err
+	}
+	cfg.apply(defaults)
+	return cfg, nil
 }
 
 // fixedLimiter is a limiter with fixed limits.
@@ -70,6 +97,34 @@ type BaseLimitIncrease struct {
 	FDFraction      float64
 }
 
+// Apply overwrites all zero-valued limits with the values of l2
+func (l *BaseLimit) Apply(l2 BaseLimit) {
+	if l.Streams == 0 {
+		l.Streams = l2.Streams
+	}
+	if l.StreamsInbound == 0 {
+		l.StreamsInbound = l2.StreamsInbound
+	}
+	if l.StreamsOutbound == 0 {
+		l.StreamsOutbound = l2.StreamsOutbound
+	}
+	if l.Conns == 0 {
+		l.Conns = l2.Conns
+	}
+	if l.ConnsInbound == 0 {
+		l.ConnsInbound = l2.ConnsInbound
+	}
+	if l.ConnsOutbound == 0 {
+		l.ConnsOutbound = l2.ConnsOutbound
+	}
+	if l.Memory == 0 {
+		l.Memory = l2.Memory
+	}
+	if l.FD == 0 {
+		l.FD = l2.FD
+	}
+}
+
 func (l *BaseLimit) GetStreamLimit(dir network.Direction) int {
 	if dir == network.DirInbound {
 		return l.StreamsInbound
@@ -103,57 +158,57 @@ func (l *BaseLimit) GetMemoryLimit() int64 {
 }
 
 func (l *fixedLimiter) GetSystemLimits() Limit {
-	return &l.SystemLimit
+	return &l.System
 }
 
 func (l *fixedLimiter) GetTransientLimits() Limit {
-	return &l.TransientLimit
+	return &l.Transient
 }
 
 func (l *fixedLimiter) GetServiceLimits(svc string) Limit {
-	sl, ok := l.ServiceLimits[svc]
+	sl, ok := l.Service[svc]
 	if !ok {
-		return &l.DefaultServiceLimit
+		return &l.ServiceDefault
 	}
 	return &sl
 }
 
 func (l *fixedLimiter) GetServicePeerLimits(svc string) Limit {
-	pl, ok := l.ServicePeerLimits[svc]
+	pl, ok := l.ServicePeer[svc]
 	if !ok {
-		return &l.DefaultServicePeerLimit
+		return &l.ServicePeerDefault
 	}
 	return &pl
 }
 
 func (l *fixedLimiter) GetProtocolLimits(proto protocol.ID) Limit {
-	pl, ok := l.ProtocolLimits[proto]
+	pl, ok := l.Protocol[proto]
 	if !ok {
-		return &l.DefaultProtocolLimit
+		return &l.ProtocolDefault
 	}
 	return &pl
 }
 
 func (l *fixedLimiter) GetProtocolPeerLimits(proto protocol.ID) Limit {
-	pl, ok := l.ProtocolPeerLimits[proto]
+	pl, ok := l.ProtocolPeer[proto]
 	if !ok {
-		return &l.DefaultProtocolPeerLimit
+		return &l.ProtocolPeerDefault
 	}
 	return &pl
 }
 
 func (l *fixedLimiter) GetPeerLimits(p peer.ID) Limit {
-	pl, ok := l.PeerLimits[p]
+	pl, ok := l.Peer[p]
 	if !ok {
-		return &l.DefaultPeerLimit
+		return &l.PeerDefault
 	}
 	return &pl
 }
 
 func (l *fixedLimiter) GetStreamLimits(_ peer.ID) Limit {
-	return &l.StreamLimit
+	return &l.Stream
 }
 
 func (l *fixedLimiter) GetConnLimits() Limit {
-	return &l.ConnLimit
+	return &l.Conn
 }

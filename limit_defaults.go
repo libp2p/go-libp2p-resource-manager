@@ -15,7 +15,7 @@ type baseLimitConfig struct {
 }
 
 // ScalingLimitConfig is a struct for configuring default limits.
-// {}BaseLimit is the limits that apply for a minimal node (128 MB of memory for libp2p) and 256 file descriptors.
+// {}BaseLimit is the limits that Apply for a minimal node (128 MB of memory for libp2p) and 256 file descriptors.
 // {}LimitIncrease is the additional limit granted for every additional 1 GB of RAM.
 type ScalingLimitConfig struct {
 	SystemBaseLimit     BaseLimit
@@ -102,26 +102,123 @@ func (cfg *ScalingLimitConfig) AddProtocolPeerLimit(proto protocol.ID, base Base
 }
 
 type LimitConfig struct {
-	SystemLimit    BaseLimit
-	TransientLimit BaseLimit
+	System    BaseLimit `json:",omitempty"`
+	Transient BaseLimit `json:",omitempty"`
 
-	DefaultServiceLimit BaseLimit
-	ServiceLimits       map[string]BaseLimit
+	ServiceDefault BaseLimit            `json:",omitempty"`
+	Service        map[string]BaseLimit `json:",omitempty"`
 
-	DefaultServicePeerLimit BaseLimit
-	ServicePeerLimits       map[string]BaseLimit
+	ServicePeerDefault BaseLimit            `json:",omitempty"`
+	ServicePeer        map[string]BaseLimit `json:",omitempty"`
 
-	DefaultProtocolLimit BaseLimit
-	ProtocolLimits       map[protocol.ID]BaseLimit
+	ProtocolDefault BaseLimit                 `json:",omitempty"`
+	Protocol        map[protocol.ID]BaseLimit `json:",omitempty"`
 
-	DefaultProtocolPeerLimit BaseLimit
-	ProtocolPeerLimits       map[protocol.ID]BaseLimit
+	ProtocolPeerDefault BaseLimit                 `json:",omitempty"`
+	ProtocolPeer        map[protocol.ID]BaseLimit `json:",omitempty"`
 
-	DefaultPeerLimit BaseLimit
-	PeerLimits       map[peer.ID]BaseLimit
+	PeerDefault BaseLimit             `json:",omitempty"`
+	Peer        map[peer.ID]BaseLimit `json:",omitempty"`
 
-	ConnLimit   BaseLimit
-	StreamLimit BaseLimit
+	Conn   BaseLimit `json:",omitempty"`
+	Stream BaseLimit `json:",omitempty"`
+}
+
+func (cfg *LimitConfig) apply(c LimitConfig) {
+	cfg.System.Apply(c.System)
+	cfg.Transient.Apply(c.Transient)
+	cfg.ServiceDefault.Apply(c.ServiceDefault)
+	cfg.ProtocolDefault.Apply(c.ProtocolDefault)
+	cfg.ProtocolPeerDefault.Apply(c.ProtocolPeerDefault)
+	cfg.PeerDefault.Apply(c.PeerDefault)
+	cfg.Conn.Apply(c.Conn)
+	cfg.Stream.Apply(c.Stream)
+
+	// TODO: the following could be solved a lot nicer, if only we could use generics
+	for s, l := range cfg.Service {
+		r := cfg.ServiceDefault
+		if l2, ok := c.Service[s]; ok {
+			r = l2
+		}
+		l.Apply(r)
+		cfg.Service[s] = l
+	}
+	if c.Service != nil && cfg.Service == nil {
+		cfg.Service = make(map[string]BaseLimit)
+	}
+	for s, l := range c.Service {
+		if _, ok := cfg.Service[s]; !ok {
+			cfg.Service[s] = l
+		}
+	}
+
+	for s, l := range cfg.ServicePeer {
+		r := cfg.ServicePeerDefault
+		if l2, ok := c.ServicePeer[s]; ok {
+			r = l2
+		}
+		l.Apply(r)
+		cfg.ServicePeer[s] = l
+	}
+	if c.ServicePeer != nil && cfg.ServicePeer == nil {
+		cfg.ServicePeer = make(map[string]BaseLimit)
+	}
+	for s, l := range c.ServicePeer {
+		if _, ok := cfg.ServicePeer[s]; !ok {
+			cfg.ServicePeer[s] = l
+		}
+	}
+
+	for s, l := range cfg.Protocol {
+		r := cfg.ProtocolDefault
+		if l2, ok := c.Protocol[s]; ok {
+			r = l2
+		}
+		l.Apply(r)
+		cfg.Protocol[s] = l
+	}
+	if c.Protocol != nil && cfg.Protocol == nil {
+		cfg.Protocol = make(map[protocol.ID]BaseLimit)
+	}
+	for s, l := range c.Protocol {
+		if _, ok := cfg.Protocol[s]; !ok {
+			cfg.Protocol[s] = l
+		}
+	}
+
+	for s, l := range cfg.ProtocolPeer {
+		r := cfg.ProtocolPeerDefault
+		if l2, ok := c.ProtocolPeer[s]; ok {
+			r = l2
+		}
+		l.Apply(r)
+		cfg.ProtocolPeer[s] = l
+	}
+	if c.ProtocolPeer != nil && cfg.ProtocolPeer == nil {
+		cfg.ProtocolPeer = make(map[protocol.ID]BaseLimit)
+	}
+	for s, l := range c.ProtocolPeer {
+		if _, ok := cfg.ProtocolPeer[s]; !ok {
+			cfg.ProtocolPeer[s] = l
+		}
+	}
+
+	for s, l := range cfg.Peer {
+		r := cfg.PeerDefault
+		if l2, ok := c.Peer[s]; ok {
+			r = l2
+		}
+		l.Apply(r)
+		cfg.Peer[s] = l
+	}
+	if c.Peer != nil && cfg.Peer == nil {
+		cfg.Peer = make(map[peer.ID]BaseLimit)
+	}
+	for s, l := range c.Peer {
+		if _, ok := cfg.Peer[s]; !ok {
+			cfg.Peer[s] = l
+		}
+	}
 }
 
 // Scale scales up a limit configuration.
@@ -135,44 +232,44 @@ func (cfg *ScalingLimitConfig) Scale(memory int64, numFD int) LimitConfig {
 		scaleFactor = int((memory - 128<<20) >> 20)
 	}
 	lc := LimitConfig{
-		SystemLimit:              scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, scaleFactor, numFD),
-		TransientLimit:           scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, scaleFactor, numFD),
-		DefaultServiceLimit:      scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, scaleFactor, numFD),
-		DefaultServicePeerLimit:  scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, scaleFactor, numFD),
-		DefaultProtocolLimit:     scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, scaleFactor, numFD),
-		DefaultProtocolPeerLimit: scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, scaleFactor, numFD),
-		DefaultPeerLimit:         scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, scaleFactor, numFD),
-		ConnLimit:                scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
-		StreamLimit:              scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
+		System:              scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, scaleFactor, numFD),
+		Transient:           scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, scaleFactor, numFD),
+		ServiceDefault:      scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, scaleFactor, numFD),
+		ServicePeerDefault:  scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, scaleFactor, numFD),
+		ProtocolDefault:     scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, scaleFactor, numFD),
+		ProtocolPeerDefault: scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, scaleFactor, numFD),
+		PeerDefault:         scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, scaleFactor, numFD),
+		Conn:                scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
+		Stream:              scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
 	}
 	if cfg.ServiceLimits != nil {
-		lc.ServiceLimits = make(map[string]BaseLimit)
+		lc.Service = make(map[string]BaseLimit)
 		for svc, l := range cfg.ServiceLimits {
-			lc.ServiceLimits[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Service[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
 		}
 	}
 	if cfg.ProtocolLimits != nil {
-		lc.ProtocolLimits = make(map[protocol.ID]BaseLimit)
+		lc.Protocol = make(map[protocol.ID]BaseLimit)
 		for proto, l := range cfg.ProtocolLimits {
-			lc.ProtocolLimits[proto] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Protocol[proto] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
 		}
 	}
 	if cfg.PeerLimits != nil {
-		lc.PeerLimits = make(map[peer.ID]BaseLimit)
+		lc.Peer = make(map[peer.ID]BaseLimit)
 		for p, l := range cfg.PeerLimits {
-			lc.PeerLimits[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Peer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
 		}
 	}
 	if cfg.ServicePeerLimits != nil {
-		lc.ServicePeerLimits = make(map[string]BaseLimit)
+		lc.ServicePeer = make(map[string]BaseLimit)
 		for svc, l := range cfg.ServicePeerLimits {
-			lc.ServicePeerLimits[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.ServicePeer[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
 		}
 	}
 	if cfg.ProtocolPeerLimits != nil {
-		lc.ProtocolPeerLimits = make(map[protocol.ID]BaseLimit)
+		lc.ProtocolPeer = make(map[protocol.ID]BaseLimit)
 		for p, l := range cfg.ProtocolPeerLimits {
-			lc.ProtocolPeerLimits[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.ProtocolPeer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
 		}
 	}
 	return lc
@@ -354,13 +451,13 @@ var infiniteBaseLimit = BaseLimit{
 // InfiniteLimits are a limiter configuration that uses infinite limits, thus effectively not limiting anything.
 // Keep in mind that the operating system limits the number of file descriptors that an application can use.
 var InfiniteLimits = LimitConfig{
-	SystemLimit:              infiniteBaseLimit,
-	TransientLimit:           infiniteBaseLimit,
-	DefaultServiceLimit:      infiniteBaseLimit,
-	DefaultServicePeerLimit:  infiniteBaseLimit,
-	DefaultProtocolLimit:     infiniteBaseLimit,
-	DefaultProtocolPeerLimit: infiniteBaseLimit,
-	DefaultPeerLimit:         infiniteBaseLimit,
-	ConnLimit:                infiniteBaseLimit,
-	StreamLimit:              infiniteBaseLimit,
+	System:              infiniteBaseLimit,
+	Transient:           infiniteBaseLimit,
+	ServiceDefault:      infiniteBaseLimit,
+	ServicePeerDefault:  infiniteBaseLimit,
+	ProtocolDefault:     infiniteBaseLimit,
+	ProtocolPeerDefault: infiniteBaseLimit,
+	PeerDefault:         infiniteBaseLimit,
+	Conn:                infiniteBaseLimit,
+	Stream:              infiniteBaseLimit,
 }
