@@ -571,7 +571,6 @@ func (s *connectionScope) transferAllowedToStandard() (err error) {
 }
 
 func (s *connectionScope) SetPeer(p peer.ID) error {
-	// TODO check if this connectionscope is part of the allowlist and do the peer checking if so.
 	s.Lock()
 	defer s.Unlock()
 
@@ -588,10 +587,10 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 	}
 
 	if s.isAllowlisted && !s.rcmgr.allowlist.AllowedPeerAndMultiaddr(p, s.endpoint) {
-		// This is not a allowed peer + multiaddr combination. We need to
+		// This is not an allowed peer + multiaddr combination. We need to
 		// transfer this connection to the general scope. We'll do this first by
 		// transferring the connection to the system and transient scopes, then
-		// continue on with this function.  The idea is that a connection
+		// continue on with this function. The idea is that a connection
 		// shouldn't get the benefit of evading the transient scope because it
 		// was _almost_ an allowlisted connection.
 		if err := s.transferAllowedToStandard(); err != nil {
