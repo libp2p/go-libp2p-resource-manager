@@ -11,7 +11,10 @@ import (
 )
 
 type allowlist struct {
-	// TODO do we want to make this lookup faster?
+	// a simple structure of lists of networks. There is probably a faster way
+	// to check if an IP address is in this network than iterating over this
+	// list, but this is good enough for small numbers of networks (<1_000).
+	// Analyze the benchmark before trying to optimize this.
 
 	// Any peer with these IPs are allowed
 	allowedNetworks []*net.IPNet
