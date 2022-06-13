@@ -1,7 +1,9 @@
 package rcmgr
 
 import (
+	"crypto/rand"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -9,7 +11,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-func TestAllowed(t *testing.T) {
+func TestAllowedSimple(t *testing.T) {
 	allowlist := newAllowList()
 	ma, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/1234")
 	err := allowlist.Add(ma)
@@ -22,65 +24,16 @@ func TestAllowed(t *testing.T) {
 	}
 }
 
-func TestAllowedNetwork(t *testing.T) {
-	allowlist := newAllowList()
-	ma, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.0/ipcidr/24")
-	err := allowlist.Add(ma)
-	if err != nil {
-		t.Fatalf("failed to add ip4: %s", err)
-	}
-
-	ma2, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.20/tcp/1234")
-	if !allowlist.Allowed(ma2) {
-		t.Fatalf("addr should be allowed")
-	}
-}
-
-func TestAllowedPeerOnIP(t *testing.T) {
-	allowlist := newAllowList()
-	p, err := test.RandPeerID()
-	if err != nil {
-		t.Fatalf("failed to gen peer ip4: %s", err)
-	}
-
-	ma, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4/p2p/" + peer.Encode(p))
-	err = allowlist.Add(ma)
-	if err != nil {
-		t.Fatalf("failed to add ip4: %s", err)
-	}
-
-	ma2, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4")
-	if !allowlist.AllowedPeerAndMultiaddr(p, ma2) {
-		t.Fatalf("addr should be allowed")
-	}
-}
-
-func TestAllowedPeerOnNetwork(t *testing.T) {
-	allowlist := newAllowList()
-	p, err := test.RandPeerID()
-	if err != nil {
-		t.Fatalf("failed to gen peer ip4: %s", err)
-	}
-
-	ma, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.0/ipcidr/24/p2p/" + peer.Encode(p))
-	err = allowlist.Add(ma)
-	if err != nil {
-		t.Fatalf("failed to add ip4: %s", err)
-	}
-
-	ma2, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4")
-	if !allowlist.AllowedPeerAndMultiaddr(p, ma2) {
-		t.Fatalf("addr should be allowed")
-	}
-}
-
 func TestAllowedWithPeer(t *testing.T) {
 	type testcase struct {
 		name      string
 		allowlist []string
 		endpoint  multiaddr.Multiaddr
 		peer      peer.ID
-		isAllowed bool
+		// Is this endpoint allowed? (We don't have peer info yet)
+		isConnAllowed bool
+		// Is this peer + endpoint allowed?
+		isAllowedWithPeer bool
 	}
 
 	peerA := test.RandPeerIDFatal(t)
@@ -90,72 +43,82 @@ func TestAllowedWithPeer(t *testing.T) {
 
 	testcases := []testcase{
 		{
-			name:      "Blocked",
-			isAllowed: false,
-			allowlist: []string{"/ip4/1.2.3.1"},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "Blocked",
+			isConnAllowed:     false,
+			isAllowedWithPeer: false,
+			allowlist:         []string{"/ip4/1.2.3.1"},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "Blocked wrong peer",
-			isAllowed: false,
-			allowlist: []string{"/ip4/1.2.3.4" + "/p2p/" + peer.Encode(peerB)},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "Blocked wrong peer",
+			isConnAllowed:     true,
+			isAllowedWithPeer: false,
+			allowlist:         []string{"/ip4/1.2.3.4" + "/p2p/" + peer.Encode(peerB)},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "allowed on network",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.0/ipcidr/24"},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "allowed on network",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.0/ipcidr/24"},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "Blocked peer not on network",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.0/ipcidr/24"},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "Blocked peer not on network",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.0/ipcidr/24"},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		}, {
-			name:      "allowed. right network, right peer",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.0/ipcidr/24" + "/p2p/" + peer.Encode(peerA)},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "allowed. right network, right peer",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.0/ipcidr/24" + "/p2p/" + peer.Encode(peerA)},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		}, {
-			name:      "allowed. right network, no peer",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.0/ipcidr/24"},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "allowed. right network, no peer",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.0/ipcidr/24"},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "Blocked. right network, wrong peer",
-			isAllowed: false,
-			allowlist: []string{"/ip4/1.2.3.0/ipcidr/24" + "/p2p/" + peer.Encode(peerB)},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "Blocked. right network, wrong peer",
+			isConnAllowed:     true,
+			isAllowedWithPeer: false,
+			allowlist:         []string{"/ip4/1.2.3.0/ipcidr/24" + "/p2p/" + peer.Encode(peerB)},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "allowed peer any ip",
-			isAllowed: true,
-			allowlist: []string{"/ip4/0.0.0.0/ipcidr/0"},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "allowed peer any ip",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/0.0.0.0/ipcidr/0"},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "allowed peer multiple ips in allowlist",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.4/p2p/" + peer.Encode(peerA), "/ip4/2.2.3.4/p2p/" + peer.Encode(peerA)},
-			endpoint:  multiaddrA,
-			peer:      peerA,
+			name:              "allowed peer multiple ips in allowlist",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.4/p2p/" + peer.Encode(peerA), "/ip4/2.2.3.4/p2p/" + peer.Encode(peerA)},
+			endpoint:          multiaddrA,
+			peer:              peerA,
 		},
 		{
-			name:      "allowed peer multiple ips in allowlist",
-			isAllowed: true,
-			allowlist: []string{"/ip4/1.2.3.4/p2p/" + peer.Encode(peerA), "/ip4/2.2.3.4/p2p/" + peer.Encode(peerA)},
-			endpoint:  multiaddrB,
-			peer:      peerA,
+			name:              "allowed peer multiple ips in allowlist",
+			isConnAllowed:     true,
+			isAllowedWithPeer: true,
+			allowlist:         []string{"/ip4/1.2.3.4/p2p/" + peer.Encode(peerA), "/ip4/2.2.3.4/p2p/" + peer.Encode(peerA)},
+			endpoint:          multiaddrB,
+			peer:              peerA,
 		},
 	}
 
@@ -170,8 +133,8 @@ func TestAllowedWithPeer(t *testing.T) {
 				allowlist.Add(ma)
 			}
 
-			if allowlist.AllowedPeerAndMultiaddr(tc.peer, tc.endpoint) != tc.isAllowed {
-				t.Fatalf("%v: expected %v", !tc.isAllowed, tc.isAllowed)
+			if allowlist.AllowedPeerAndMultiaddr(tc.peer, tc.endpoint) != tc.isAllowedWithPeer {
+				t.Fatalf("%v: expected %v", !tc.isAllowedWithPeer, tc.isAllowedWithPeer)
 			}
 		})
 	}
@@ -216,5 +179,81 @@ func TestRemoved(t *testing.T) {
 				t.Fatalf("addr should not be allowed")
 			}
 		})
+	}
+}
+
+// BenchmarkAllowlistCheck benchmarks the allowlist with plausible conditions.
+func BenchmarkAllowlistCheck(b *testing.B) {
+	allowlist := newAllowList()
+
+	// How often do we expect a peer to be specified? 1 in N
+	ratioOfSpecifiedPeers := 10
+
+	// How often do we expect an allowlist hit? 1 in N
+	ratioOfAllowlistHit := 100
+
+	// How many multiaddrs in our allowlist?
+	howManyMultiaddrsInAllowList := 1_000
+
+	// How often is the IP addr an IPV6? 1 in N
+	ratioOfIPV6 := 20
+
+	countOfTotalPeersForTest := 100_000
+
+	peers := make([]peer.ID, countOfTotalPeersForTest)
+	mas := make([]multiaddr.Multiaddr, countOfTotalPeersForTest)
+	for i := 0; i < countOfTotalPeersForTest; i++ {
+		peers[i] = test.RandPeerIDFatal(b)
+
+		ip := make([]byte, 16)
+		n, err := rand.Reader.Read(ip)
+		if err != nil || n != 16 {
+			b.Fatalf("Failed to generate IPv4 address")
+		}
+
+		var ipString string
+
+		if i%ratioOfIPV6 == 0 {
+			// IPv4
+			ip6 := net.IP(ip)
+			peers[i] = test.RandPeerIDFatal(b)
+			ipString = "/ip6/" + ip6.String()
+		} else {
+			// IPv4
+			ip4 := net.IPv4(ip[0], ip[1], ip[2], ip[3])
+			peers[i] = test.RandPeerIDFatal(b)
+			ipString = "/ip4/" + ip4.String()
+		}
+
+		var ma multiaddr.Multiaddr
+		if i%ratioOfSpecifiedPeers == 0 {
+			ma, err = multiaddr.NewMultiaddr(ipString + "/p2p/" + peer.Encode(peers[i]))
+		} else {
+			ma, err = multiaddr.NewMultiaddr(ipString)
+		}
+		if err != nil {
+			b.Fatalf("Failed to generate multiaddr: %v", ipString)
+		}
+
+		mas[i] = ma
+	}
+
+	for _, ma := range mas[:howManyMultiaddrsInAllowList] {
+		err := allowlist.Add(ma)
+		if err != nil {
+			b.Fatalf("Failed to add multiaddr")
+		}
+	}
+
+	masInAllowList := mas[:howManyMultiaddrsInAllowList]
+	masNotInAllowList := mas[howManyMultiaddrsInAllowList:]
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		if n%ratioOfAllowlistHit == 0 {
+			allowlist.Allowed(masInAllowList[n%len(masInAllowList)])
+		} else {
+			allowlist.Allowed(masNotInAllowList[n%len(masNotInAllowList)])
+		}
 	}
 }

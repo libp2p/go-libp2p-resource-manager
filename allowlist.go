@@ -14,28 +14,27 @@ type allowlist struct {
 	// TODO do we want to make this lookup faster?
 
 	// Any peer with these IPs are allowed
-	allowedIPs      []net.IP
 	allowedNetworks []*net.IPNet
 
 	// Only the specified peers can use these IPs
-	allowedPeerByIP      map[peer.ID][]net.IP
 	allowedPeerByNetwork map[peer.ID][]*net.IPNet
 }
 
 func newAllowList() allowlist {
 	return allowlist{
-		allowedPeerByIP:      make(map[peer.ID][]net.IP),
 		allowedPeerByNetwork: make(map[peer.ID][]*net.IPNet),
 	}
 }
 
-func toIPOrIPNet(ma multiaddr.Multiaddr) (net.IP, *net.IPNet, string, error) {
+func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, string, error) {
 	var ipString string
 	var mask string
 	var allowedPeer string
+	var isIPV4 bool
 
 	multiaddr.ForEach(ma, func(c multiaddr.Component) bool {
 		if c.Protocol().Code == multiaddr.P_IP4 || c.Protocol().Code == multiaddr.P_IP6 {
+			isIPV4 = c.Protocol().Code == multiaddr.P_IP4
 			ipString = c.Value()
 		}
 		if c.Protocol().Code == multiaddr.P_IPCIDR {
@@ -48,24 +47,32 @@ func toIPOrIPNet(ma multiaddr.Multiaddr) (net.IP, *net.IPNet, string, error) {
 	})
 
 	if ipString == "" {
-		return nil, nil, allowedPeer, errors.New("missing ip address")
+		return nil, allowedPeer, errors.New("missing ip address")
 	}
 
 	if mask == "" {
 		ip := net.ParseIP(ipString)
 		if ip == nil {
-			return nil, nil, allowedPeer, errors.New("invalid ip address")
+			return nil, allowedPeer, errors.New("invalid ip address")
 		}
-		return ip, nil, allowedPeer, nil
+		var mask net.IPMask
+		if isIPV4 {
+			mask = net.CIDRMask(32, 32)
+		} else {
+			mask = net.CIDRMask(128, 128)
+		}
+
+		net := &net.IPNet{IP: ip, Mask: mask}
+		return net, allowedPeer, nil
 	}
 
 	_, ipnet, err := net.ParseCIDR(ipString + "/" + mask)
-	return nil, ipnet, allowedPeer, err
+	return ipnet, allowedPeer, err
 
 }
 
 func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
-	ip, ipnet, allowedPeerStr, err := toIPOrIPNet(ma)
+	ipnet, allowedPeerStr, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
@@ -76,15 +83,11 @@ func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 		if err != nil {
 			return err
 		}
-		if ip != nil {
-			al.allowedPeerByIP[allowedPeer] = append(al.allowedPeerByIP[allowedPeer], ip)
-		} else if ipnet != nil {
+		if ipnet != nil {
 			al.allowedPeerByNetwork[allowedPeer] = append(al.allowedPeerByNetwork[allowedPeer], ipnet)
 		}
 	} else {
-		if ip != nil {
-			al.allowedIPs = append(al.allowedIPs, ip)
-		} else if ipnet != nil {
+		if ipnet != nil {
 			al.allowedNetworks = append(al.allowedNetworks, ipnet)
 		}
 	}
@@ -92,11 +95,10 @@ func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 }
 
 func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
-	ip, ipnet, allowedPeerStr, err := toIPOrIPNet(ma)
+	ipnet, allowedPeerStr, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
-	ipList := al.allowedIPs
 	ipNetList := al.allowedNetworks
 
 	var allowedPeer peer.ID
@@ -106,26 +108,10 @@ func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
 		if err != nil {
 			return err
 		}
-		ipList = al.allowedPeerByIP[allowedPeer]
 		ipNetList = al.allowedPeerByNetwork[allowedPeer]
 	}
 
-	if ip != nil {
-		i := len(ipList)
-		for i > 0 {
-			i--
-			if ipList[i].Equal(ip) {
-				if i == len(ipList)-1 {
-					// Trim this element from the end
-					ipList = ipList[:i]
-				} else {
-					// swap remove
-					ipList[i] = ipList[len(ipList)-1]
-					ipList = ipList[:len(ipList)-1]
-				}
-			}
-		}
-	} else if ipnet != nil {
+	if ipnet != nil {
 		i := len(ipNetList)
 		for i > 0 {
 			i--
@@ -143,10 +129,8 @@ func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
 	}
 
 	if allowedPeer != "" {
-		al.allowedPeerByIP[allowedPeer] = ipList
 		al.allowedPeerByNetwork[allowedPeer] = ipNetList
 	} else {
-		al.allowedIPs = ipList
 		al.allowedNetworks = ipNetList
 	}
 
@@ -159,23 +143,11 @@ func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 		return false
 	}
 
-	for _, allowedIP := range al.allowedIPs {
-		if allowedIP.Equal(ip) {
-			return true
-		}
-	}
-
+	_ = ip
 	for _, network := range al.allowedNetworks {
+		_ = network
 		if network.Contains(ip) {
 			return true
-		}
-	}
-
-	for _, allowedIPs := range al.allowedPeerByIP {
-		for _, allowedIP := range allowedIPs {
-			if allowedIP.Equal(ip) {
-				return true
-			}
 		}
 	}
 
@@ -196,25 +168,10 @@ func (al *allowlist) AllowedPeerAndMultiaddr(peerID peer.ID, ma multiaddr.Multia
 		return false
 	}
 
-	for _, allowedIP := range al.allowedIPs {
-		if allowedIP.Equal(ip) {
-			// We found a match that isn't constrained by a peerID
-			return true
-		}
-	}
-
 	for _, network := range al.allowedNetworks {
 		if network.Contains(ip) {
 			// We found a match that isn't constrained by a peerID
 			return true
-		}
-	}
-
-	if expectedIPs, ok := al.allowedPeerByIP[peerID]; ok {
-		for _, expectedIP := range expectedIPs {
-			if expectedIP.Equal(ip) {
-				return true
-			}
 		}
 	}
 
