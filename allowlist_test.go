@@ -133,6 +133,10 @@ func TestAllowedWithPeer(t *testing.T) {
 				allowlist.Add(ma)
 			}
 
+			if allowlist.Allowed(tc.endpoint) != tc.isConnAllowed {
+				t.Fatalf("%v: expected %v", !tc.isConnAllowed, tc.isConnAllowed)
+			}
+
 			if allowlist.AllowedPeerAndMultiaddr(tc.peer, tc.endpoint) != tc.isAllowedWithPeer {
 				t.Fatalf("%v: expected %v", !tc.isAllowedWithPeer, tc.isAllowedWithPeer)
 			}
@@ -200,34 +204,30 @@ func BenchmarkAllowlistCheck(b *testing.B) {
 
 	countOfTotalPeersForTest := 100_000
 
-	peers := make([]peer.ID, countOfTotalPeersForTest)
 	mas := make([]multiaddr.Multiaddr, countOfTotalPeersForTest)
 	for i := 0; i < countOfTotalPeersForTest; i++ {
-		peers[i] = test.RandPeerIDFatal(b)
 
 		ip := make([]byte, 16)
 		n, err := rand.Reader.Read(ip)
 		if err != nil || n != 16 {
-			b.Fatalf("Failed to generate IPv4 address")
+			b.Fatalf("Failed to generate IP address")
 		}
 
 		var ipString string
 
 		if i%ratioOfIPV6 == 0 {
-			// IPv4
+			// IPv6
 			ip6 := net.IP(ip)
-			peers[i] = test.RandPeerIDFatal(b)
 			ipString = "/ip6/" + ip6.String()
 		} else {
 			// IPv4
 			ip4 := net.IPv4(ip[0], ip[1], ip[2], ip[3])
-			peers[i] = test.RandPeerIDFatal(b)
 			ipString = "/ip4/" + ip4.String()
 		}
 
 		var ma multiaddr.Multiaddr
 		if i%ratioOfSpecifiedPeers == 0 {
-			ma, err = multiaddr.NewMultiaddr(ipString + "/p2p/" + peer.Encode(peers[i]))
+			ma, err = multiaddr.NewMultiaddr(ipString + "/p2p/" + peer.Encode(test.RandPeerIDFatal(b)))
 		} else {
 			ma, err = multiaddr.NewMultiaddr(ipString)
 		}
