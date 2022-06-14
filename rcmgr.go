@@ -125,7 +125,7 @@ var _ network.StreamManagementScope = (*streamScope)(nil)
 type Option func(*resourceManager) error
 
 func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager, error) {
-	allowlist := newAllowList()
+	allowlist := newAllowlist()
 	r := &resourceManager{
 		limits:    limits,
 		allowlist: &allowlist,

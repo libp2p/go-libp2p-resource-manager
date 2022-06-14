@@ -12,8 +12,8 @@ import (
 )
 
 func TestAllowedSimple(t *testing.T) {
-	allowlist := newAllowList()
-	ma, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/1234")
+	allowlist := newAllowlist()
+	ma := multiaddr.StringCast("/ip4/1.2.3.4/tcp/1234")
 	err := allowlist.Add(ma)
 	if err != nil {
 		t.Fatalf("failed to add ip4: %s", err)
@@ -124,7 +124,7 @@ func TestAllowedWithPeer(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			allowlist := newAllowList()
+			allowlist := newAllowlist()
 			for _, maStr := range tc.allowlist {
 				ma, err := multiaddr.NewMultiaddr(maStr)
 				if err != nil {
@@ -151,7 +151,7 @@ func TestRemoved(t *testing.T) {
 		allowedMA string
 	}
 	peerA := test.RandPeerIDFatal(t)
-	maA, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4")
+	maA := multiaddr.StringCast("/ip4/1.2.3.4")
 
 	testCases := []testCase{
 		{name: "ip4", allowedMA: "/ip4/1.2.3.4"},
@@ -162,13 +162,10 @@ func TestRemoved(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			allowlist := newAllowList()
-			ma, err := multiaddr.NewMultiaddr(tc.allowedMA)
-			if err != nil {
-				t.Fatalf("failed to parse ma: %s", err)
-			}
+			allowlist := newAllowlist()
+			ma := multiaddr.StringCast(tc.allowedMA)
 
-			err = allowlist.Add(ma)
+			err := allowlist.Add(ma)
 			if err != nil {
 				t.Fatalf("failed to add ip4: %s", err)
 			}
@@ -188,7 +185,7 @@ func TestRemoved(t *testing.T) {
 
 // BenchmarkAllowlistCheck benchmarks the allowlist with plausible conditions.
 func BenchmarkAllowlistCheck(b *testing.B) {
-	allowlist := newAllowList()
+	allowlist := newAllowlist()
 
 	// How often do we expect a peer to be specified? 1 in N
 	ratioOfSpecifiedPeers := 10
@@ -227,9 +224,9 @@ func BenchmarkAllowlistCheck(b *testing.B) {
 
 		var ma multiaddr.Multiaddr
 		if i%ratioOfSpecifiedPeers == 0 {
-			ma, err = multiaddr.NewMultiaddr(ipString + "/p2p/" + peer.Encode(test.RandPeerIDFatal(b)))
+			ma = multiaddr.StringCast(ipString + "/p2p/" + peer.Encode(test.RandPeerIDFatal(b)))
 		} else {
-			ma, err = multiaddr.NewMultiaddr(ipString)
+			ma = multiaddr.StringCast(ipString)
 		}
 		if err != nil {
 			b.Fatalf("Failed to generate multiaddr: %v", ipString)

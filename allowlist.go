@@ -3,6 +3,7 @@ package rcmgr
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,16 +24,17 @@ type allowlist struct {
 	allowedPeerByNetwork map[peer.ID][]*net.IPNet
 }
 
-func newAllowList() allowlist {
+func newAllowlist() allowlist {
 	return allowlist{
 		allowedPeerByNetwork: make(map[peer.ID][]*net.IPNet),
 	}
 }
 
-func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, string, error) {
+func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, peer.ID, error) {
 	var ipString string
 	var mask string
-	var allowedPeer string
+	var allowedPeerStr string
+	var allowedPeer peer.ID
 	var isIPV4 bool
 
 	multiaddr.ForEach(ma, func(c multiaddr.Component) bool {
@@ -44,13 +46,21 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, string, error) {
 			mask = c.Value()
 		}
 		if c.Protocol().Code == multiaddr.P_P2P {
-			allowedPeer = c.Value()
+			allowedPeerStr = c.Value()
 		}
-		return ipString == "" || mask == "" || allowedPeer == ""
+		return ipString == "" || mask == "" || allowedPeerStr == ""
 	})
 
 	if ipString == "" {
 		return nil, allowedPeer, errors.New("missing ip address")
+	}
+
+	if allowedPeerStr != "" {
+		var err error
+		allowedPeer, err = peer.Decode(allowedPeerStr)
+		if err != nil {
+			return nil, allowedPeer, fmt.Errorf("failed to decode allowed peer: %w", err)
+		}
 	}
 
 	if mask == "" {
@@ -74,59 +84,48 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, string, error) {
 
 }
 
+// Add takes a multiaddr and adds it to the allowlist. The multiaddr should be
+// an ip address of the peer with or without a `/p2p` protocol.
+// e.g. /ip4/1.2.3.4/p2p/QmFoo and /ip4/1.2.3.4 are valid.
+// /p2p/QmFoo is not valid.
 func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
-	ipnet, allowedPeerStr, err := toIPNet(ma)
+	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
 
-	if allowedPeerStr != "" {
+	if allowedPeer != peer.ID("") {
 		// We have a peerID constraint
-		allowedPeer, err := peer.Decode(allowedPeerStr)
-		if err != nil {
-			return err
-		}
-		if ipnet != nil {
-			al.allowedPeerByNetwork[allowedPeer] = append(al.allowedPeerByNetwork[allowedPeer], ipnet)
-		}
+		al.allowedPeerByNetwork[allowedPeer] = append(al.allowedPeerByNetwork[allowedPeer], ipnet)
 	} else {
-		if ipnet != nil {
-			al.allowedNetworks = append(al.allowedNetworks, ipnet)
-		}
+		al.allowedNetworks = append(al.allowedNetworks, ipnet)
 	}
 	return nil
 }
 
 func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
-	ipnet, allowedPeerStr, err := toIPNet(ma)
+	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
 	ipNetList := al.allowedNetworks
 
-	var allowedPeer peer.ID
-	if allowedPeerStr != "" {
+	if allowedPeer != peer.ID("") {
 		// We have a peerID constraint
-		allowedPeer, err = peer.Decode(allowedPeerStr)
-		if err != nil {
-			return err
-		}
 		ipNetList = al.allowedPeerByNetwork[allowedPeer]
 	}
 
-	if ipnet != nil {
-		i := len(ipNetList)
-		for i > 0 {
-			i--
-			if ipNetList[i].IP.Equal(ipnet.IP) && bytes.Equal(ipNetList[i].Mask, ipnet.Mask) {
-				if i == len(ipNetList)-1 {
-					// Trim this element from the end
-					ipNetList = ipNetList[:i]
-				} else {
-					// swap remove
-					ipNetList[i] = ipNetList[len(ipNetList)-1]
-					ipNetList = ipNetList[:len(ipNetList)-1]
-				}
+	i := len(ipNetList)
+	for i > 0 {
+		i--
+		if ipNetList[i].IP.Equal(ipnet.IP) && bytes.Equal(ipNetList[i].Mask, ipnet.Mask) {
+			if i == len(ipNetList)-1 {
+				// Trim this element from the end
+				ipNetList = ipNetList[:i]
+			} else {
+				// swap remove
+				ipNetList[i] = ipNetList[len(ipNetList)-1]
+				ipNetList = ipNetList[:len(ipNetList)-1]
 			}
 		}
 	}
@@ -146,9 +145,7 @@ func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 		return false
 	}
 
-	_ = ip
 	for _, network := range al.allowedNetworks {
-		_ = network
 		if network.Contains(ip) {
 			return true
 		}
