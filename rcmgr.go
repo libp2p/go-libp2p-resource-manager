@@ -149,6 +149,11 @@ func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager
 	r.transient = newTransientScope(limits.GetTransientLimits(), r)
 	r.transient.IncRef()
 
+	r.allowlistedSystem = newSystemScope(limits.GetSystemLimits(), r)
+	r.allowlistedSystem.IncRef()
+	r.allowlistedTransient = newTransientScope(limits.GetTransientLimits(), r)
+	r.allowlistedTransient.IncRef()
+
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
 
 	r.wg.Add(1)
