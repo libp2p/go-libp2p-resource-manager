@@ -144,14 +144,14 @@ func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager
 		return nil, err
 	}
 
-	r.system = newSystemScope(limits.GetSystemLimits(), r)
+	r.system = newSystemScope(limits.GetSystemLimits(), r, "system")
 	r.system.IncRef()
-	r.transient = newTransientScope(limits.GetTransientLimits(), r)
+	r.transient = newTransientScope(limits.GetTransientLimits(), r, "transient", r.system.resourceScope)
 	r.transient.IncRef()
 
-	r.allowlistedSystem = newSystemScope(limits.GetSystemLimits(), r)
+	r.allowlistedSystem = newSystemScope(limits.GetSystemLimits(), r, "allowlistedSystem")
 	r.allowlistedSystem.IncRef()
-	r.allowlistedTransient = newTransientScope(limits.GetTransientLimits(), r)
+	r.allowlistedTransient = newTransientScope(limits.GetTransientLimits(), r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
 	r.allowlistedTransient.IncRef()
 
 	r.cancelCtx, r.cancel = context.WithCancel(context.Background())
@@ -384,17 +384,17 @@ func (r *resourceManager) gc() {
 	}
 }
 
-func newSystemScope(limit Limit, rcmgr *resourceManager) *systemScope {
+func newSystemScope(limit Limit, rcmgr *resourceManager, name string) *systemScope {
 	return &systemScope{
-		resourceScope: newResourceScope(limit, nil, "system", rcmgr.trace, rcmgr.metrics),
+		resourceScope: newResourceScope(limit, nil, name, rcmgr.trace, rcmgr.metrics),
 	}
 }
 
-func newTransientScope(limit Limit, rcmgr *resourceManager) *transientScope {
+func newTransientScope(limit Limit, rcmgr *resourceManager, name string, systemScope *resourceScope) *transientScope {
 	return &transientScope{
 		resourceScope: newResourceScope(limit,
-			[]*resourceScope{rcmgr.system.resourceScope},
-			"transient", rcmgr.trace, rcmgr.metrics),
+			[]*resourceScope{systemScope},
+			name, rcmgr.trace, rcmgr.metrics),
 		system: rcmgr.system,
 	}
 }
