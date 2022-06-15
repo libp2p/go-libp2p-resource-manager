@@ -2,10 +2,12 @@ package rcmgr
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/canonicallog"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -15,6 +17,8 @@ import (
 )
 
 var log = logging.Logger("rcmgr")
+
+var ErrPeerStreamLimit = errors.New("peer stream limit reached")
 
 type resourceManager struct {
 	limits Limiter
@@ -299,6 +303,10 @@ func (r *resourceManager) OpenStream(p peer.ID, dir network.Direction) (network.
 	if err != nil {
 		stream.Done()
 		r.metrics.BlockStream(p, dir)
+		// Was this issue because of the peer limits?
+		if peer.resourceScope.rc.canAddStream(dir) != nil {
+			return nil, fmt.Errorf("%w: %v", ErrPeerStreamLimit, err)
+		}
 		return nil, err
 	}
 
@@ -613,6 +621,7 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 		s.peer.DecRef()
 		s.peer = nil
 		s.rcmgr.metrics.BlockPeer(p)
+		canonicallog.LogMisbehavingPeer(p, s.endpoint, err, "failed to attach connection to peer scope")
 		return err
 	}
 

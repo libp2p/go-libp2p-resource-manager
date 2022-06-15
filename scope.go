@@ -111,7 +111,14 @@ func (rc *resources) addStream(dir network.Direction) error {
 	return rc.addStreams(0, 1)
 }
 
-func (rc *resources) addStreams(incount, outcount int) error {
+func (rc *resources) canAddStream(dir network.Direction) error {
+	if dir == network.DirInbound {
+		return rc.canAddStreams(1, 0)
+	}
+	return rc.canAddStreams(0, 1)
+}
+
+func (rc *resources) canAddStreams(incount, outcount int) error {
 	if incount > 0 && rc.nstreamsIn+incount > rc.limit.GetStreamLimit(network.DirInbound) {
 		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
 	}
@@ -121,7 +128,13 @@ func (rc *resources) addStreams(incount, outcount int) error {
 	if rc.nstreamsIn+incount+rc.nstreamsOut+outcount > rc.limit.GetStreamTotalLimit() {
 		return fmt.Errorf("cannot reserve stream: %w", network.ErrResourceLimitExceeded)
 	}
+	return nil
+}
 
+func (rc *resources) addStreams(incount, outcount int) error {
+	if err := rc.canAddStreams(incount, outcount); err != nil {
+		return err
+	}
 	rc.nstreamsIn += incount
 	rc.nstreamsOut += outcount
 	return nil
