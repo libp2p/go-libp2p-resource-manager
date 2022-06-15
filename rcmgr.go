@@ -278,6 +278,7 @@ func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool, endp
 	} else {
 		conn = newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
 	}
+	conn.endpoint = endpoint
 
 	if err := conn.AddConn(dir, usefd); err != nil {
 		conn.Done()
