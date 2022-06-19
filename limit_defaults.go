@@ -124,7 +124,7 @@ type LimitConfig struct {
 	Stream BaseLimit `json:",omitempty"`
 }
 
-func (cfg *LimitConfig) apply(c LimitConfig) {
+func (cfg *LimitConfig) Apply(c LimitConfig) {
 	cfg.System.Apply(c.System)
 	cfg.Transient.Apply(c.Transient)
 	cfg.ServiceDefault.Apply(c.ServiceDefault)

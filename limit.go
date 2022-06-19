@@ -58,7 +58,7 @@ func readLimiterConfigFromJSON(in io.Reader, defaults LimitConfig) (LimitConfig,
 	if err := json.NewDecoder(in).Decode(&cfg); err != nil {
 		return LimitConfig{}, err
 	}
-	cfg.apply(defaults)
+	cfg.Apply(defaults)
 	return cfg, nil
 }
 
@@ -86,19 +86,8 @@ type BaseLimit struct {
 	Memory          int64
 }
 
-// BaseLimitIncrease is the increase per GB of system memory.
-type BaseLimitIncrease struct {
-	Streams         int
-	StreamsInbound  int
-	StreamsOutbound int
-	Conns           int
-	ConnsInbound    int
-	ConnsOutbound   int
-	Memory          int64
-	FDFraction      float64
-}
-
 // Apply overwrites all zero-valued limits with the values of l2
+// Must not use a pointer receiver.
 func (l *BaseLimit) Apply(l2 BaseLimit) {
 	if l.Streams == 0 {
 		l.Streams = l2.Streams
@@ -123,6 +112,47 @@ func (l *BaseLimit) Apply(l2 BaseLimit) {
 	}
 	if l.FD == 0 {
 		l.FD = l2.FD
+	}
+}
+
+// BaseLimitIncrease is the increase per GB of system memory.
+type BaseLimitIncrease struct {
+	Streams         int
+	StreamsInbound  int
+	StreamsOutbound int
+	Conns           int
+	ConnsInbound    int
+	ConnsOutbound   int
+	Memory          int64
+	FDFraction      float64
+}
+
+// Apply overwrites all zero-valued limits with the values of l2
+// Must not use a pointer receiver.
+func (l *BaseLimitIncrease) Apply(l2 BaseLimitIncrease) {
+	if l.Streams == 0 {
+		l.Streams = l2.Streams
+	}
+	if l.StreamsInbound == 0 {
+		l.StreamsInbound = l2.StreamsInbound
+	}
+	if l.StreamsOutbound == 0 {
+		l.StreamsOutbound = l2.StreamsOutbound
+	}
+	if l.Conns == 0 {
+		l.Conns = l2.Conns
+	}
+	if l.ConnsInbound == 0 {
+		l.ConnsInbound = l2.ConnsInbound
+	}
+	if l.ConnsOutbound == 0 {
+		l.ConnsOutbound = l2.ConnsOutbound
+	}
+	if l.Memory == 0 {
+		l.Memory = l2.Memory
+	}
+	if l.FDFraction == 0 {
+		l.FDFraction = l2.FDFraction
 	}
 }
 
