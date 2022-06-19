@@ -26,12 +26,43 @@ type errStreamOrConnLimitExceeded struct {
 
 func (e *errStreamOrConnLimitExceeded) Error() string { return e.err.Error() }
 func (e *errStreamOrConnLimitExceeded) Unwrap() error { return e.err }
-func (e *errStreamOrConnLimitExceeded) AppendLogValues(v []interface{}) []interface{} {
-	return append(v,
-		"current", e.current,
-		"attempted", e.attempted,
-		"limit", e.limit,
-	)
+
+// edge may be "" if this is not an edge error
+func logValuesStreamLimit(scope, edge string, dir network.Direction, stat network.ScopeStat, err error) []interface{} {
+	logValues := make([]interface{}, 0, 2*8)
+	logValues = append(logValues, "scope", scope)
+	if edge != "" {
+		logValues = append(logValues, "edge", edge)
+	}
+	logValues = append(logValues, "direction", dir)
+	var e *errStreamOrConnLimitExceeded
+	if errors.As(err, &e) {
+		logValues = append(logValues,
+			"current", e.current,
+			"attempted", e.attempted,
+			"limit", e.limit,
+		)
+	}
+	return append(logValues, "stat", stat, "error", err)
+}
+
+// edge may be "" if this is not an edge error
+func logValuesConnLimit(scope, edge string, dir network.Direction, usefd bool, stat network.ScopeStat, err error) []interface{} {
+	logValues := make([]interface{}, 0, 2*9)
+	logValues = append(logValues, "scope", scope)
+	if edge != "" {
+		logValues = append(logValues, "edge", edge)
+	}
+	logValues = append(logValues, "direction", dir, "usefd", usefd)
+	var e *errStreamOrConnLimitExceeded
+	if errors.As(err, &e) {
+		logValues = append(logValues,
+			"current", e.current,
+			"attempted", e.attempted,
+			"limit", e.limit,
+		)
+	}
+	return append(logValues, "stat", stat, "error", err)
 }
 
 type errMemoryLimitExceeded struct {
@@ -42,13 +73,24 @@ type errMemoryLimitExceeded struct {
 
 func (e *errMemoryLimitExceeded) Error() string { return e.err.Error() }
 func (e *errMemoryLimitExceeded) Unwrap() error { return e.err }
-func (e *errMemoryLimitExceeded) AppendLogValues(v []interface{}) []interface{} {
-	return append(v,
-		"current", e.current,
-		"attempted", e.attempted,
-		"priority", e.priority,
-		"limit", e.limit,
-	)
+
+// edge may be "" if this is not an edge error
+func logValuesMemoryLimit(scope, edge string, stat network.ScopeStat, err error) []interface{} {
+	logValues := make([]interface{}, 0, 2*8)
+	logValues = append(logValues, "scope", scope)
+	if edge != "" {
+		logValues = append(logValues, "edge", edge)
+	}
+	var e *errMemoryLimitExceeded
+	if errors.As(err, &e) {
+		logValues = append(logValues,
+			"current", e.current,
+			"attempted", e.attempted,
+			"priority", e.priority,
+			"limit", e.limit,
+		)
+	}
+	return append(logValues, "stat", stat, "error", err)
 }
 
 // A resourceScope can be a DAG, where a downstream node is not allowed to outlive an upstream node
@@ -329,14 +371,7 @@ func (s *resourceScope) ReserveMemory(size int, prio uint8) error {
 	}
 
 	if err := s.rc.reserveMemory(int64(size), prio); err != nil {
-		logValues := make([]interface{}, 0, 7)
-		logValues = append(logValues, "scope", s.name)
-		var limitErr *errMemoryLimitExceeded
-		if errors.As(err, &limitErr) {
-			logValues = limitErr.AppendLogValues(logValues)
-		}
-		logValues = append(logValues, "stat", s.rc.stat(), "error", err)
-		log.Debugw("blocked memory reservation", logValues...)
+		log.Debugw("blocked memory reservation", logValuesMemoryLimit(s.name, "", s.rc.stat(), err)...)
 		s.trace.BlockReserveMemory(s.name, prio, int64(size), s.rc.memory)
 		s.metrics.BlockMemory(size)
 		return s.wrapError(err)
@@ -364,14 +399,7 @@ func (s *resourceScope) reserveMemoryForEdges(size int, prio uint8) error {
 		var stat network.ScopeStat
 		stat, err = e.ReserveMemoryForChild(int64(size), prio)
 		if err != nil {
-			logValues := make([]interface{}, 0, 7)
-			logValues = append(logValues, "scope", s.name, "edge", e.name)
-			var limitErr *errMemoryLimitExceeded
-			if errors.As(err, &limitErr) {
-				logValues = limitErr.AppendLogValues(logValues)
-			}
-			logValues = append(logValues, "stat", stat, "error", err)
-			log.Debugw("blocked memory reservation from constraining edge", logValues...)
+			log.Debugw("blocked memory reservation from constraining edge", logValuesMemoryLimit(s.name, e.name, stat, err)...)
 			break
 		}
 
@@ -450,14 +478,7 @@ func (s *resourceScope) AddStream(dir network.Direction) error {
 	}
 
 	if err := s.rc.addStream(dir); err != nil {
-		logValues := make([]interface{}, 0, 7)
-		logValues = append(logValues, "scope", s.name, "direction", dir)
-		var limitErr *errStreamOrConnLimitExceeded
-		if errors.As(err, &limitErr) {
-			logValues = limitErr.AppendLogValues(logValues)
-		}
-		logValues = append(logValues, "stat", s.rc.stat(), "error", err)
-		log.Debugw("blocked stream", logValues...)
+		log.Debugw("blocked stream", logValuesStreamLimit(s.name, "", dir, s.rc.stat(), err)...)
 		s.trace.BlockAddStream(s.name, dir, s.rc.nstreamsIn, s.rc.nstreamsOut)
 		return s.wrapError(err)
 	}
@@ -482,14 +503,7 @@ func (s *resourceScope) addStreamForEdges(dir network.Direction) error {
 		var stat network.ScopeStat
 		stat, err = e.AddStreamForChild(dir)
 		if err != nil {
-			logValues := make([]interface{}, 0, 8)
-			logValues = append(logValues, "scope", s.name, "edge", e.name, "direction", dir)
-			var limitErr *errStreamOrConnLimitExceeded
-			if errors.As(err, &limitErr) {
-				logValues = limitErr.AppendLogValues(logValues)
-			}
-			logValues = append(logValues, "stat", stat, "error", err)
-			log.Debugw("blocked stream from constraining edge", logValues...)
+			log.Debugw("blocked stream from constraining edge", logValuesStreamLimit(s.name, e.name, dir, stat, err)...)
 			break
 		}
 		reserved++
@@ -566,14 +580,7 @@ func (s *resourceScope) AddConn(dir network.Direction, usefd bool) error {
 	}
 
 	if err := s.rc.addConn(dir, usefd); err != nil {
-		logValues := make([]interface{}, 0, 8)
-		logValues = append(logValues, "scope", s.name, "direction", dir, "usefd", usefd)
-		var limitErr *errStreamOrConnLimitExceeded
-		if errors.As(err, &limitErr) {
-			logValues = limitErr.AppendLogValues(logValues)
-		}
-		logValues = append(logValues, "stat", s.rc.stat(), "error", err)
-		log.Debugw("blocked connection", logValues...)
+		log.Debugw("blocked connection", logValuesConnLimit(s.name, "", dir, usefd, s.rc.stat(), err)...)
 		s.trace.BlockAddConn(s.name, dir, usefd, s.rc.nconnsIn, s.rc.nconnsOut, s.rc.nfd)
 		return s.wrapError(err)
 	}
@@ -598,14 +605,7 @@ func (s *resourceScope) addConnForEdges(dir network.Direction, usefd bool) error
 		var stat network.ScopeStat
 		stat, err = e.AddConnForChild(dir, usefd)
 		if err != nil {
-			logValues := make([]interface{}, 0, 8)
-			logValues = append(logValues, "scope", s.name, "edge", e.name, "direction", dir, "usefd", usefd)
-			var limitErr *errStreamOrConnLimitExceeded
-			if errors.As(err, &limitErr) {
-				logValues = limitErr.AppendLogValues(logValues)
-			}
-			logValues = append(logValues, "stat", stat, "error", err)
-			log.Debugw("blocked connection from constraining edge", logValues...)
+			log.Debugw("blocked connection from constraining edge", logValuesConnLimit(s.name, e.name, dir, usefd, stat, err)...)
 			break
 		}
 		reserved++
