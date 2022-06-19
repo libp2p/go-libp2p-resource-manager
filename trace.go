@@ -4,8 +4,10 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,11 +48,125 @@ const (
 	traceRemoveConnEvt         = "remove_conn"
 )
 
+type scopeClass struct {
+	name string
+}
+
+func (s scopeClass) MarshalJSON() ([]byte, error) {
+	name := s.name
+	var span string
+	if idx := strings.Index(name, "span:"); idx > -1 {
+		name = name[:idx-1]
+		span = name[idx+5:]
+	}
+	// System and Transient scope
+	if name == "system" || name == "transient" {
+		return json.Marshal(struct {
+			Class string
+			Span  string `json:",omitempty"`
+		}{
+			Class: name,
+			Span:  span,
+		})
+	}
+	// Connection scope
+	if strings.HasPrefix(name, "conn-") {
+		return json.Marshal(struct {
+			Class string
+			Conn  string
+			Span  string `json:",omitempty"`
+		}{
+			Class: "conn",
+			Conn:  name[5:],
+			Span:  span,
+		})
+	}
+	// Stream scope
+	if strings.HasPrefix(name, "stream-") {
+		return json.Marshal(struct {
+			Class  string
+			Stream string
+			Span   string `json:",omitempty"`
+		}{
+			Class:  "stream",
+			Stream: name[7:],
+			Span:   span,
+		})
+	}
+	// Peer scope
+	if strings.HasPrefix(name, "peer:") {
+		return json.Marshal(struct {
+			Class string
+			Peer  string
+			Span  string `json:",omitempty"`
+		}{
+			Class: "peer",
+			Peer:  name[5:],
+			Span:  span,
+		})
+	}
+
+	if strings.HasPrefix(name, "service:") {
+		if idx := strings.Index(name, "peer:"); idx > 0 { // Peer-Service scope
+			return json.Marshal(struct {
+				Class   string
+				Service string
+				Peer    string
+				Span    string `json:",omitempty"`
+			}{
+				Class:   "service-peer",
+				Service: name[8 : idx-1],
+				Peer:    name[idx+5:],
+				Span:    span,
+			})
+		} else { // Service scope
+			return json.Marshal(struct {
+				Class   string
+				Service string
+				Span    string `json:",omitempty"`
+			}{
+				Class:   "service",
+				Service: name[8:],
+				Span:    span,
+			})
+		}
+	}
+
+	if strings.HasPrefix(name, "protocol:") {
+		if idx := strings.Index(name, "peer:"); idx > -1 { // Peer-Protocol scope
+			return json.Marshal(struct {
+				Class    string
+				Protocol string
+				Peer     string
+				Span     string `json:",omitempty"`
+			}{
+				Class:    "protocol-peer",
+				Protocol: name[9 : idx-1],
+				Peer:     name[idx+5:],
+				Span:     span,
+			})
+		} else { // Protocol scope
+			return json.Marshal(struct {
+				Class    string
+				Protocol string
+				Span     string `json:",omitempty"`
+			}{
+				Class:    "protocol",
+				Protocol: name[9:],
+				Span:     span,
+			})
+		}
+	}
+
+	return nil, fmt.Errorf("unrecognized scope: %s", name)
+}
+
 type TraceEvt struct {
 	Time string
 	Type string
 
-	Scope string `json:",omitempty"`
+	Scope *scopeClass `json:",omitempty"`
+	Name  string      `json:",omitempty"`
 
 	Limit interface{} `json:",omitempty"`
 
@@ -79,6 +195,9 @@ func (t *trace) push(evt TraceEvt) {
 		return
 	}
 	evt.Time = time.Now().Format(time.RFC3339Nano)
+	if evt.Name != "" {
+		evt.Scope = &scopeClass{name: evt.Name}
+	}
 
 	t.pend = append(t.pend, evt)
 }
@@ -211,7 +330,7 @@ func (t *trace) CreateScope(scope string, limit Limit) {
 
 	t.push(TraceEvt{
 		Type:  traceCreateScopeEvt,
-		Scope: scope,
+		Name:  scope,
 		Limit: limit,
 	})
 }
@@ -222,8 +341,8 @@ func (t *trace) DestroyScope(scope string) {
 	}
 
 	t.push(TraceEvt{
-		Type:  traceDestroyScopeEvt,
-		Scope: scope,
+		Type: traceDestroyScopeEvt,
+		Name: scope,
 	})
 }
 
@@ -238,7 +357,7 @@ func (t *trace) ReserveMemory(scope string, prio uint8, size, mem int64) {
 
 	t.push(TraceEvt{
 		Type:     traceReserveMemoryEvt,
-		Scope:    scope,
+		Name:     scope,
 		Priority: prio,
 		Delta:    size,
 		Memory:   mem,
@@ -256,7 +375,7 @@ func (t *trace) BlockReserveMemory(scope string, prio uint8, size, mem int64) {
 
 	t.push(TraceEvt{
 		Type:     traceBlockReserveMemoryEvt,
-		Scope:    scope,
+		Name:     scope,
 		Priority: prio,
 		Delta:    size,
 		Memory:   mem,
@@ -274,7 +393,7 @@ func (t *trace) ReleaseMemory(scope string, size, mem int64) {
 
 	t.push(TraceEvt{
 		Type:   traceReleaseMemoryEvt,
-		Scope:  scope,
+		Name:   scope,
 		Delta:  size,
 		Memory: mem,
 	})
@@ -294,7 +413,7 @@ func (t *trace) AddStream(scope string, dir network.Direction, nstreamsIn, nstre
 
 	t.push(TraceEvt{
 		Type:       traceAddStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    deltaIn,
 		DeltaOut:   deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -316,7 +435,7 @@ func (t *trace) BlockAddStream(scope string, dir network.Direction, nstreamsIn, 
 
 	t.push(TraceEvt{
 		Type:       traceBlockAddStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    deltaIn,
 		DeltaOut:   deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -338,7 +457,7 @@ func (t *trace) RemoveStream(scope string, dir network.Direction, nstreamsIn, ns
 
 	t.push(TraceEvt{
 		Type:       traceRemoveStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    deltaIn,
 		DeltaOut:   deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -357,7 +476,7 @@ func (t *trace) AddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstreams
 
 	t.push(TraceEvt{
 		Type:       traceAddStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    deltaIn,
 		DeltaOut:   deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -376,7 +495,7 @@ func (t *trace) BlockAddStreams(scope string, deltaIn, deltaOut, nstreamsIn, nst
 
 	t.push(TraceEvt{
 		Type:       traceBlockAddStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    deltaIn,
 		DeltaOut:   deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -395,7 +514,7 @@ func (t *trace) RemoveStreams(scope string, deltaIn, deltaOut, nstreamsIn, nstre
 
 	t.push(TraceEvt{
 		Type:       traceRemoveStreamEvt,
-		Scope:      scope,
+		Name:       scope,
 		DeltaIn:    -deltaIn,
 		DeltaOut:   -deltaOut,
 		StreamsIn:  nstreamsIn,
@@ -420,7 +539,7 @@ func (t *trace) AddConn(scope string, dir network.Direction, usefd bool, nconnsI
 
 	t.push(TraceEvt{
 		Type:     traceAddConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  deltaIn,
 		DeltaOut: deltaOut,
 		Delta:    int64(deltafd),
@@ -447,7 +566,7 @@ func (t *trace) BlockAddConn(scope string, dir network.Direction, usefd bool, nc
 
 	t.push(TraceEvt{
 		Type:     traceBlockAddConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  deltaIn,
 		DeltaOut: deltaOut,
 		Delta:    int64(deltafd),
@@ -474,7 +593,7 @@ func (t *trace) RemoveConn(scope string, dir network.Direction, usefd bool, ncon
 
 	t.push(TraceEvt{
 		Type:     traceRemoveConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  deltaIn,
 		DeltaOut: deltaOut,
 		Delta:    int64(deltafd),
@@ -495,7 +614,7 @@ func (t *trace) AddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, nco
 
 	t.push(TraceEvt{
 		Type:     traceAddConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  deltaIn,
 		DeltaOut: deltaOut,
 		Delta:    int64(deltafd),
@@ -516,7 +635,7 @@ func (t *trace) BlockAddConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn
 
 	t.push(TraceEvt{
 		Type:     traceBlockAddConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  deltaIn,
 		DeltaOut: deltaOut,
 		Delta:    int64(deltafd),
@@ -537,7 +656,7 @@ func (t *trace) RemoveConns(scope string, deltaIn, deltaOut, deltafd, nconnsIn, 
 
 	t.push(TraceEvt{
 		Type:     traceRemoveConnEvt,
-		Scope:    scope,
+		Name:     scope,
 		DeltaIn:  -deltaIn,
 		DeltaOut: -deltaOut,
 		Delta:    -int64(deltafd),
