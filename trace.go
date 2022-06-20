@@ -394,7 +394,7 @@ func (t *trace) ReleaseMemory(scope string, size, mem int64) {
 	t.push(TraceEvt{
 		Type:   traceReleaseMemoryEvt,
 		Name:   scope,
-		Delta:  size,
+		Delta:  -size,
 		Memory: mem,
 	})
 }
