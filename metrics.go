@@ -47,20 +47,10 @@ type metrics struct {
 	reporter MetricsReporter
 }
 
-// WithMetrics is a resource manager option to enable metrics collection. Can be
-// called multiple times to add multiple reporters.
+// WithMetrics is a resource manager option to enable metrics collection
 func WithMetrics(reporter MetricsReporter) Option {
 	return func(r *resourceManager) error {
-		if r.metrics == nil {
-			r.metrics = &metrics{reporter: reporter}
-		} else if multimetrics, ok := r.metrics.reporter.(*MultiMetricsReporter); ok {
-			multimetrics.reporters = append(multimetrics.reporters, reporter)
-		} else {
-			// This was a single reporter. Lets convert it to a multimetrics reporter
-			r.metrics = &metrics{
-				reporter: &MultiMetricsReporter{reporters: []MetricsReporter{r.metrics.reporter, reporter}},
-			}
-		}
+		r.metrics = &metrics{reporter: reporter}
 		return nil
 	}
 }
@@ -175,107 +165,4 @@ func (m *metrics) BlockMemory(size int) {
 	}
 
 	m.reporter.BlockMemory(size)
-}
-
-// MultiMetricsReporter is a helper that allows you to report to multiple metrics reporters.
-type MultiMetricsReporter struct {
-	reporters []MetricsReporter
-}
-
-// AllowConn is invoked when opening a connection is allowed
-func (mmr *MultiMetricsReporter) AllowConn(dir network.Direction, usefd bool) {
-	for _, r := range mmr.reporters {
-		r.AllowConn(dir, usefd)
-	}
-}
-
-// BlockConn is invoked when opening a connection is blocked
-func (mmr *MultiMetricsReporter) BlockConn(dir network.Direction, usefd bool) {
-	for _, r := range mmr.reporters {
-		r.BlockConn(dir, usefd)
-	}
-}
-
-// AllowStream is invoked when opening a stream is allowed
-func (mmr *MultiMetricsReporter) AllowStream(p peer.ID, dir network.Direction) {
-	for _, r := range mmr.reporters {
-		r.AllowStream(p, dir)
-	}
-}
-
-// BlockStream is invoked when opening a stream is blocked
-func (mmr *MultiMetricsReporter) BlockStream(p peer.ID, dir network.Direction) {
-	for _, r := range mmr.reporters {
-		r.BlockStream(p, dir)
-	}
-}
-
-// AllowPeer is invoked when attaching ac onnection to a peer is allowed
-func (mmr *MultiMetricsReporter) AllowPeer(p peer.ID) {
-	for _, r := range mmr.reporters {
-		r.AllowPeer(p)
-	}
-}
-
-// BlockPeer is invoked when attaching ac onnection to a peer is blocked
-func (mmr *MultiMetricsReporter) BlockPeer(p peer.ID) {
-	for _, r := range mmr.reporters {
-		r.BlockPeer(p)
-	}
-}
-
-// AllowProtocol is invoked when setting the protocol for a stream is allowed
-func (mmr *MultiMetricsReporter) AllowProtocol(proto protocol.ID) {
-	for _, r := range mmr.reporters {
-		r.AllowProtocol(proto)
-	}
-}
-
-// BlockProtocol is invoked when setting the protocol for a stream is blocked
-func (mmr *MultiMetricsReporter) BlockProtocol(proto protocol.ID) {
-	for _, r := range mmr.reporters {
-		r.BlockProtocol(proto)
-	}
-}
-
-// BlockedProtocolPeer is invoekd when setting the protocol for a stream is blocked at the per protocol peer scope
-func (mmr *MultiMetricsReporter) BlockProtocolPeer(proto protocol.ID, p peer.ID) {
-	for _, r := range mmr.reporters {
-		r.BlockProtocolPeer(proto, p)
-	}
-}
-
-// AllowPService is invoked when setting the protocol for a stream is allowed
-func (mmr *MultiMetricsReporter) AllowService(svc string) {
-	for _, r := range mmr.reporters {
-		r.AllowService(svc)
-	}
-}
-
-// BlockPService is invoked when setting the protocol for a stream is blocked
-func (mmr *MultiMetricsReporter) BlockService(svc string) {
-	for _, r := range mmr.reporters {
-		r.BlockService(svc)
-	}
-}
-
-// BlockedServicePeer is invoked when setting the service for a stream is blocked at the per service peer scope
-func (mmr *MultiMetricsReporter) BlockServicePeer(svc string, p peer.ID) {
-	for _, r := range mmr.reporters {
-		r.BlockServicePeer(svc, p)
-	}
-}
-
-// AllowMemory is invoked when a memory reservation is allowed
-func (mmr *MultiMetricsReporter) AllowMemory(size int) {
-	for _, r := range mmr.reporters {
-		r.AllowMemory(size)
-	}
-}
-
-// BlockMemory is invoked when a memory reservation is blocked
-func (mmr *MultiMetricsReporter) BlockMemory(size int) {
-	for _, r := range mmr.reporters {
-		r.BlockMemory(size)
-	}
 }
