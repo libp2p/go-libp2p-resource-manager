@@ -144,7 +144,7 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 
 	switch evt.Type {
 	case rcmgr.TraceAddStreamEvt, rcmgr.TraceRemoveStreamEvt:
-		if p := rcmgr.ParsePeerScopeName(evt.Scope); p.Validate() == nil {
+		if p := rcmgr.ParsePeerScopeName(evt.Name); p.Validate() == nil {
 			// Aggregated peer stats. Counts how many peers have N number of streams open.
 			// Uses two buckets aggregations. One to count how many streams the
 			// peer has now. The other to count the negative value, or how many
@@ -174,11 +174,11 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 			}
 		} else {
 			var tags []tag.Mutator
-			if rcmgr.IsSystemScope(evt.Scope) || rcmgr.IsTransientScope(evt.Scope) {
-				tags = append(tags, tag.Upsert(Scope, evt.Scope))
-			} else if svc := rcmgr.ParseServiceScopeName(evt.Scope); svc != "" {
+			if rcmgr.IsSystemScope(evt.Name) || rcmgr.IsTransientScope(evt.Name) {
+				tags = append(tags, tag.Upsert(Scope, evt.Name))
+			} else if svc := rcmgr.ParseServiceScopeName(evt.Name); svc != "" {
 				tags = append(tags, tag.Upsert(Scope, "service"), tag.Upsert(Service, svc))
-			} else if proto := rcmgr.ParseProtocolScopeName(evt.Scope); proto != "" {
+			} else if proto := rcmgr.ParseProtocolScopeName(evt.Name); proto != "" {
 				tags = append(tags, tag.Upsert(Scope, "protocol"), tag.Upsert(Protocol, proto))
 			} else {
 				// Not measuring connscope, servicepeer and protocolpeer. Lots of data, and
@@ -205,7 +205,7 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 		}
 
 	case rcmgr.TraceAddConnEvt, rcmgr.TraceRemoveConnEvt:
-		if p := rcmgr.ParsePeerScopeName(evt.Scope); p.Validate() == nil {
+		if p := rcmgr.ParsePeerScopeName(evt.Name); p.Validate() == nil {
 			// Aggregated peer stats. Counts how many peers have N number of connections.
 			// Uses two buckets aggregations. One to count how many streams the
 			// peer has now. The other to count the negative value, or how many
@@ -235,14 +235,14 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 			}
 		} else {
 			var tags []tag.Mutator
-			if rcmgr.IsSystemScope(evt.Scope) || rcmgr.IsTransientScope(evt.Scope) {
-				tags = append(tags, tag.Upsert(Scope, evt.Scope))
-			} else if rcmgr.IsConnScope(evt.Scope) {
+			if rcmgr.IsSystemScope(evt.Name) || rcmgr.IsTransientScope(evt.Name) {
+				tags = append(tags, tag.Upsert(Scope, evt.Name))
+			} else if rcmgr.IsConnScope(evt.Name) {
 				// Not measuring this. I don't think it's useful.
 				break
 			} else {
 				// There shouldn't be anything here. But we keep going so the metrics will tell us if we're wrong (scope="")
-				log.Debugf("unexpected event in stats: %s", evt.Scope)
+				log.Debugf("unexpected event in stats: %s", evt.Name)
 			}
 
 			if evt.DeltaOut != 0 {
@@ -271,7 +271,7 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 			}
 		}
 	case rcmgr.TraceReserveMemoryEvt, rcmgr.TraceReleaseMemoryEvt:
-		if p := rcmgr.ParsePeerScopeName(evt.Scope); p.Validate() == nil {
+		if p := rcmgr.ParsePeerScopeName(evt.Name); p.Validate() == nil {
 			oldMem := evt.Memory - evt.Delta
 			if oldMem != evt.Memory {
 				if oldMem != 0 {
@@ -281,7 +281,7 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 					stats.Record(ctx, peerMemory.M(evt.Memory))
 				}
 			}
-		} else if rcmgr.IsConnScope(evt.Scope) {
+		} else if rcmgr.IsConnScope(evt.Name) {
 			oldMem := evt.Memory - evt.Delta
 			if oldMem != evt.Memory {
 				if oldMem != 0 {
@@ -293,11 +293,11 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 			}
 		} else {
 			var tags []tag.Mutator
-			if rcmgr.IsSystemScope(evt.Scope) || rcmgr.IsTransientScope(evt.Scope) {
-				tags = append(tags, tag.Upsert(Scope, evt.Scope))
-			} else if svc := rcmgr.ParseServiceScopeName(evt.Scope); svc != "" {
+			if rcmgr.IsSystemScope(evt.Name) || rcmgr.IsTransientScope(evt.Name) {
+				tags = append(tags, tag.Upsert(Scope, evt.Name))
+			} else if svc := rcmgr.ParseServiceScopeName(evt.Name); svc != "" {
 				tags = append(tags, tag.Upsert(Scope, "service"), tag.Upsert(Service, svc))
-			} else if proto := rcmgr.ParseProtocolScopeName(evt.Scope); proto != "" {
+			} else if proto := rcmgr.ParseProtocolScopeName(evt.Name); proto != "" {
 				tags = append(tags, tag.Upsert(Scope, "protocol"), tag.Upsert(Protocol, proto))
 			} else {
 				// Not measuring connscope, servicepeer and protocolpeer. Lots of data, and
@@ -322,7 +322,7 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 		}
 
 		// Only the top scope. We don't want to get the peerid here.
-		scope := strings.SplitN(evt.Scope, ":", 2)[0]
+		scope := strings.SplitN(evt.Name, ":", 2)[0]
 		// Drop the connection or stream id
 		scope = strings.SplitN(scope, "-", 2)[0]
 
