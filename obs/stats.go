@@ -323,6 +323,8 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 
 		// Only the top scope. We don't want to get the peerid here.
 		scope := strings.SplitN(evt.Scope, ":", 2)[0]
+		// Drop the connection or stream id
+		scope = strings.SplitN(scope, "-", 2)[0]
 
 		tags := []tag.Mutator{tag.Upsert(Scope, scope), tag.Upsert(Resource, resource)}
 
