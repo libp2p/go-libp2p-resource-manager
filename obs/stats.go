@@ -329,9 +329,6 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 
 		tags := []tag.Mutator{tag.Upsert(Scope, scope), tag.Upsert(Resource, resource)}
 
-		// TODO fix the graph in the dashboard for blocked resources.
-		// TODO change bytes to iec
-
 		if evt.DeltaIn != 0 {
 			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
 		}
