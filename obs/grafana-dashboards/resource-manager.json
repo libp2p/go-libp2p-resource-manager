@@ -102,7 +102,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "count(rcmgr_trace_metrics_blocked_resources) by (resource,scope)",
+          "expr": "rate(rcmgr_trace_metrics_blocked_resources[$__rate_interval])",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
