@@ -54,24 +54,24 @@ var (
 
 	ConnView = &view.View{Measure: conns, Aggregation: view.Sum(), TagKeys: []tag.Key{Direction, Scope}}
 
-	fibLikeDistribution = []float64{
-		1.1, 2.1, 3.1, 5.1, 8.1, 13.1, 21.1, 34.1, 55.1, 100.1, 200.1,
+	oneTenThenExpDistribution = []float64{
+		1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 9.1, 10.1, 16.1, 32.1, 64.1, 128.1, 256.1,
 	}
 
 	PeerConnsView = &view.View{
 		Measure:     peerConns,
-		Aggregation: view.Distribution(fibLikeDistribution...),
+		Aggregation: view.Distribution(oneTenThenExpDistribution...),
 		TagKeys:     []tag.Key{Direction},
 	}
 	PeerConnsNegativeView = &view.View{
 		Measure:     peerConnsNegative,
-		Aggregation: view.Distribution(fibLikeDistribution...),
+		Aggregation: view.Distribution(oneTenThenExpDistribution...),
 		TagKeys:     []tag.Key{Direction},
 	}
 
 	StreamView             = &view.View{Measure: streams, Aggregation: view.Sum(), TagKeys: []tag.Key{Direction, Scope, Service, Protocol}}
-	PeerStreamsView        = &view.View{Measure: peerStreams, Aggregation: view.Distribution(fibLikeDistribution...), TagKeys: []tag.Key{Direction}}
-	PeerStreamNegativeView = &view.View{Measure: peerStreamsNegative, Aggregation: view.Distribution(fibLikeDistribution...), TagKeys: []tag.Key{Direction}}
+	PeerStreamsView        = &view.View{Measure: peerStreams, Aggregation: view.Distribution(oneTenThenExpDistribution...), TagKeys: []tag.Key{Direction}}
+	PeerStreamNegativeView = &view.View{Measure: peerStreamsNegative, Aggregation: view.Distribution(oneTenThenExpDistribution...), TagKeys: []tag.Key{Direction}}
 
 	MemoryView = &view.View{Measure: memory, Aggregation: view.Sum(), TagKeys: []tag.Key{Scope, Service, Protocol}}
 
@@ -136,6 +136,7 @@ var DefaultViews []*view.View = []*view.View{
 type StatsTraceReporter struct{}
 
 func NewStatsTraceReporter() (StatsTraceReporter, error) {
+	// TODO tell prometheus the system limits
 	return StatsTraceReporter{}, nil
 }
 
@@ -328,16 +329,19 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 
 		tags := []tag.Mutator{tag.Upsert(Scope, scope), tag.Upsert(Resource, resource)}
 
+		// TODO fix the graph in the dashboard for blocked resources.
+		// TODO change bytes to iec
+
 		if evt.DeltaIn != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(evt.DeltaIn)))
+			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
 		}
 
 		if evt.DeltaOut != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(evt.DeltaOut)))
+			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
 		}
 
 		if evt.Delta != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(evt.Delta))
+			stats.RecordWithTags(ctx, tags, blockedResources.M(1))
 		}
 	}
 }
