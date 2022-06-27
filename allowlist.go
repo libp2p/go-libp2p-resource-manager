@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -12,6 +13,7 @@ import (
 )
 
 type allowlist struct {
+	mu sync.RWMutex
 	// a simple structure of lists of networks. There is probably a faster way
 	// to check if an IP address is in this network than iterating over this
 	// list, but this is good enough for small numbers of networks (<1_000).
@@ -89,6 +91,8 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, peer.ID, error) {
 // e.g. /ip4/1.2.3.4/p2p/QmFoo and /ip4/1.2.3.4 are valid.
 // /p2p/QmFoo is not valid.
 func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
+	al.mu.Lock()
+	defer al.mu.Unlock()
 	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
@@ -104,6 +108,9 @@ func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 }
 
 func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
+	al.mu.Lock()
+	defer al.mu.Unlock()
+
 	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
@@ -140,6 +147,8 @@ func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
 }
 
 func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
+	al.mu.RLock()
+	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)
 	if err != nil {
 		return false
@@ -163,6 +172,8 @@ func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 }
 
 func (al *allowlist) AllowedPeerAndMultiaddr(peerID peer.ID, ma multiaddr.Multiaddr) bool {
+	al.mu.RLock()
+	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)
 	if err != nil {
 		return false
