@@ -12,7 +12,7 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
-type allowlist struct {
+type Allowlist struct {
 	mu sync.RWMutex
 	// a simple structure of lists of networks. There is probably a faster way
 	// to check if an IP address is in this network than iterating over this
@@ -26,8 +26,8 @@ type allowlist struct {
 	allowedPeerByNetwork map[peer.ID][]*net.IPNet
 }
 
-func newAllowlist() allowlist {
-	return allowlist{
+func newAllowlist() Allowlist {
+	return Allowlist{
 		allowedPeerByNetwork: make(map[peer.ID][]*net.IPNet),
 	}
 }
@@ -90,7 +90,7 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, peer.ID, error) {
 // an ip address of the peer with or without a `/p2p` protocol.
 // e.g. /ip4/1.2.3.4/p2p/QmFoo, /ip4/1.2.3.4, and /ip4/1.2.3.0/ipcidr/24 are valid.
 // /p2p/QmFoo is not valid.
-func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
+func (al *Allowlist) Add(ma multiaddr.Multiaddr) error {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	ipnet, allowedPeer, err := toIPNet(ma)
@@ -100,6 +100,9 @@ func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 
 	if allowedPeer != peer.ID("") {
 		// We have a peerID constraint
+		if al.allowedPeerByNetwork == nil {
+			al.allowedPeerByNetwork = make(map[peer.ID][]*net.IPNet)
+		}
 		al.allowedPeerByNetwork[allowedPeer] = append(al.allowedPeerByNetwork[allowedPeer], ipnet)
 	} else {
 		al.allowedNetworks = append(al.allowedNetworks, ipnet)
@@ -107,7 +110,7 @@ func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 	return nil
 }
 
-func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
+func (al *Allowlist) Remove(ma multiaddr.Multiaddr) error {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
@@ -120,6 +123,10 @@ func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
 	if allowedPeer != peer.ID("") {
 		// We have a peerID constraint
 		ipNetList = al.allowedPeerByNetwork[allowedPeer]
+	}
+
+	if ipNetList == nil {
+		return nil
 	}
 
 	i := len(ipNetList)
@@ -146,7 +153,7 @@ func (al *allowlist) Remove(ma multiaddr.Multiaddr) error {
 	return nil
 }
 
-func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
+func (al *Allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)
@@ -171,7 +178,7 @@ func (al *allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 	return false
 }
 
-func (al *allowlist) AllowedPeerAndMultiaddr(peerID peer.ID, ma multiaddr.Multiaddr) bool {
+func (al *Allowlist) AllowedPeerAndMultiaddr(peerID peer.ID, ma multiaddr.Multiaddr) bool {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)

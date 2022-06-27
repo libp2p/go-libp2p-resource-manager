@@ -22,7 +22,7 @@ type resourceManager struct {
 	trace   *trace
 	metrics *metrics
 
-	allowlist *allowlist
+	allowlist *Allowlist
 
 	system    *systemScope
 	transient *transientScope
