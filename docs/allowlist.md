@@ -20,6 +20,8 @@ This is the problem that the Allowlist is designed to solve.
   - A peer may be able to open a connection, but after the handshake, if it's
     not an expected peer id we move it to the normal system scope.
 - We can have multiple PeerIDs for a given IP addr.
+- No extra cost for the happy path when we are still below system and transient
+  limits.
 
 ## Proposed change
 
@@ -38,11 +40,12 @@ For example, an allowlist set could look like:
 /ip4/1.2.3.0/ipcidr/24
 ```
 
-When a new connection is opened, the resource manager checks if the multiaddr
-matches an item in the set of allowlisted multiaddrs. If so, it creates the
-connection resource scope using the allowlisted specific system and transient
-resource scopes. Otherwise, it uses the normal system and transient resource
-scopes as it does today.
+When a new connection is opened, the resource manager tries to allocate with the
+normal system and transient resource scopes. If that fails, it checks if the
+multiaddr matches an item in the set of allowlisted multiaddrs. If so, it
+creates the connection resource scope using the allowlisted specific system and
+transient resource scopes. If it wasn't an allowlisted multiaddr it fails as
+before.
 
 When an allowlisted connection is tied to a peer id and transfered with
 `ConnManagementScope.SetPeer`, we check if that peer id matches the expected
