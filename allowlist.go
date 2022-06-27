@@ -88,7 +88,7 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, peer.ID, error) {
 
 // Add takes a multiaddr and adds it to the allowlist. The multiaddr should be
 // an ip address of the peer with or without a `/p2p` protocol.
-// e.g. /ip4/1.2.3.4/p2p/QmFoo and /ip4/1.2.3.4 are valid.
+// e.g. /ip4/1.2.3.4/p2p/QmFoo, /ip4/1.2.3.4, and /ip4/1.2.3.0/ipcidr/24 are valid.
 // /p2p/QmFoo is not valid.
 func (al *allowlist) Add(ma multiaddr.Multiaddr) error {
 	al.mu.Lock()
