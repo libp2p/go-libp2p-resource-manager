@@ -271,16 +271,22 @@ func (r *resourceManager) nextStreamId() int64 {
 }
 
 func (r *resourceManager) OpenConnection(dir network.Direction, usefd bool, endpoint multiaddr.Multiaddr) (network.ConnManagementScope, error) {
-	allowed := r.allowlist.Allowed(endpoint)
 	var conn *connectionScope
-	if allowed {
-		conn = newAllowListedConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
-	} else {
-		conn = newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r)
-	}
-	conn.endpoint = endpoint
+	conn = newConnectionScope(dir, usefd, r.limits.GetConnLimits(), r, endpoint)
 
-	if err := conn.AddConn(dir, usefd); err != nil {
+	err := conn.AddConn(dir, usefd)
+	if err != nil {
+		// Try again if this is an allowlisted connection
+		// Failed to open connection, let's see if this was allowlisted and try again
+		allowed := r.allowlist.Allowed(endpoint)
+		if allowed {
+			conn.Done()
+			conn = newAllowListedConnectionScope(dir, usefd, r.limits.GetConnLimits(), r, endpoint)
+			err = conn.AddConn(dir, usefd)
+		}
+	}
+
+	if err != nil {
 		conn.Done()
 		r.metrics.BlockConn(dir, usefd)
 		return nil, err
@@ -430,25 +436,28 @@ func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 	}
 }
 
-func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager) *connectionScope {
+func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager, endpoint multiaddr.Multiaddr) *connectionScope {
 	return &connectionScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope},
 			fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
-		dir:   dir,
-		usefd: usefd,
-		rcmgr: rcmgr,
+		dir:      dir,
+		usefd:    usefd,
+		rcmgr:    rcmgr,
+		endpoint: endpoint,
 	}
 }
 
-func newAllowListedConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager) *connectionScope {
+func newAllowListedConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *resourceManager, endpoint multiaddr.Multiaddr) *connectionScope {
 	return &connectionScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.allowlistedTransient.resourceScope, rcmgr.allowlistedSystem.resourceScope},
 			fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
-		dir:   dir,
-		usefd: usefd,
-		rcmgr: rcmgr,
+		dir:           dir,
+		usefd:         usefd,
+		rcmgr:         rcmgr,
+		endpoint:      endpoint,
+		isAllowlisted: true,
 	}
 }
 
@@ -533,14 +542,14 @@ func (s *connectionScope) PeerScope() network.PeerScope {
 	return s.peer
 }
 
-// transferAllowedToStandard Transfers this connection scope from being part of
+// transferAllowedToStandard transfers this connection scope from being part of
 // the allowlist set of scopes to being part of the standard set of scopes.
 // Happens when we first allowlisted this connection due to its IP, but later
 // discovered that the peer id not what we expected.
 func (s *connectionScope) transferAllowedToStandard() (err error) {
 
 	systemScope := s.rcmgr.system.resourceScope
-	transientScope := s.rcmgr.system.resourceScope
+	transientScope := s.rcmgr.transient.resourceScope
 
 	stat := s.resourceScope.rc.stat()
 
@@ -589,9 +598,11 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 
 	if s.isAllowlisted {
 		system = s.rcmgr.allowlistedSystem
-		transient = s.rcmgr.transient
+		transient = s.rcmgr.allowlistedTransient
 
 		if !s.rcmgr.allowlist.AllowedPeerAndMultiaddr(p, s.endpoint) {
+			s.isAllowlisted = false
+
 			// This is not an allowed peer + multiaddr combination. We need to
 			// transfer this connection to the general scope. We'll do this first by
 			// transferring the connection to the system and transient scopes, then
@@ -602,6 +613,10 @@ func (s *connectionScope) SetPeer(p peer.ID) error {
 				// Failed to transfer this connection to the standard scopes
 				return err
 			}
+
+			// set the system and transient scopes to the non-allowlisted ones
+			system = s.rcmgr.system
+			transient = s.rcmgr.transient
 		}
 	}
 
