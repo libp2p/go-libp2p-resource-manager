@@ -26,6 +26,19 @@ type Allowlist struct {
 	allowedPeerByNetwork map[peer.ID][]*net.IPNet
 }
 
+// WithAllowlistedMultiaddrs sets the multiaddrs to be in the allowlist
+func WithAllowlistedMultiaddrs(mas []multiaddr.Multiaddr) Option {
+	return func(rm *resourceManager) error {
+		for _, ma := range mas {
+			err := rm.allowlist.Add(ma)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 func newAllowlist() Allowlist {
 	return Allowlist{
 		allowedPeerByNetwork: make(map[peer.ID][]*net.IPNet),

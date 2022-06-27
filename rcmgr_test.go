@@ -1004,15 +1004,18 @@ func TestResourceManager(t *testing.T) {
 }
 
 func TestResourceManagerWithAllowlist(t *testing.T) {
+	peerA := test.RandPeerIDFatal(t)
+
 	limits := NewDefaultLimiter()
 	limits.SystemLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
 	limits.TransientLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
-	rcmgr, err := NewResourceManager(limits)
+	rcmgr, err := NewResourceManager(limits, WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
+		multiaddr.StringCast("/ip4/1.2.3.4"),
+		multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()),
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	peerA := test.RandPeerIDFatal(t)
 
 	{
 		// Setup allowlist. TODO, replace this with a config once config changes are in
@@ -1022,10 +1025,6 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 		r.allowlistedSystem.IncRef()
 		r.allowlistedTransient = newTransientScope(limits.GetTransientLimits().WithConnLimit(1, 1, 1), r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
 		r.allowlistedTransient.IncRef()
-		allowlist := r.GetAllowlist()
-
-		allowlist.Add(multiaddr.StringCast("/ip4/1.2.3.4"))
-		allowlist.Add(multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()))
 	}
 
 	// A connection comes in from a non-allowlisted ip address
@@ -1066,5 +1065,4 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
