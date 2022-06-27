@@ -6,6 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -998,6 +999,72 @@ func TestResourceManager(t *testing.T) {
 	}
 	if lenSvcPeer != 0 {
 		t.Fatal("service peers were not gc'ed")
+	}
+
+}
+
+func TestResourceManagerWithAllowlist(t *testing.T) {
+	limits := NewDefaultLimiter()
+	limits.SystemLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
+	limits.TransientLimits = limits.SystemLimits.WithConnLimit(0, 0, 0)
+	rcmgr, err := NewResourceManager(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	peerA := test.RandPeerIDFatal(t)
+
+	{
+		// Setup allowlist. TODO, replace this with a config once config changes are in
+		r := rcmgr.(*resourceManager)
+
+		r.allowlistedSystem = newSystemScope(limits.GetSystemLimits().WithConnLimit(2, 1, 2), r, "allowlistedSystem")
+		r.allowlistedSystem.IncRef()
+		r.allowlistedTransient = newTransientScope(limits.GetTransientLimits().WithConnLimit(1, 1, 1), r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
+		r.allowlistedTransient.IncRef()
+		allowlist := r.allowlist
+
+		allowlist.Add(multiaddr.StringCast("/ip4/1.2.3.4"))
+		allowlist.Add(multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()))
+	}
+
+	// A connection comes in from a non-allowlisted ip address
+	_, err = rcmgr.OpenConnection(network.DirInbound, true, multiaddr.StringCast("/ip4/1.2.3.5"))
+	if err == nil {
+		t.Fatalf("Expected this to fail. err=%v", err)
+	}
+
+	// A connection comes in from an allowlisted ip address
+	connScope, err := rcmgr.OpenConnection(network.DirInbound, true, multiaddr.StringCast("/ip4/1.2.3.4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connScope.SetPeer(test.RandPeerIDFatal(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A connection comes in that looks like it should be allowlisted, but then has the wrong peer id.
+	connScope, err = rcmgr.OpenConnection(network.DirInbound, true, multiaddr.StringCast("/ip4/4.3.2.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connScope.SetPeer(test.RandPeerIDFatal(t))
+	if err == nil {
+		t.Fatalf("Expected this to fail. err=%v", err)
+	}
+
+	// A connection comes in that looks like it should be allowlisted, and it has the allowlisted peer id
+	connScope, err = rcmgr.OpenConnection(network.DirInbound, true, multiaddr.StringCast("/ip4/4.3.2.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connScope.SetPeer(peerA)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }
