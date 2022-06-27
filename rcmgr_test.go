@@ -1022,7 +1022,7 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 		r.allowlistedSystem.IncRef()
 		r.allowlistedTransient = newTransientScope(limits.GetTransientLimits().WithConnLimit(1, 1, 1), r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
 		r.allowlistedTransient.IncRef()
-		allowlist := r.allowlist
+		allowlist := r.GetAllowlist()
 
 		allowlist.Add(multiaddr.StringCast("/ip4/1.2.3.4"))
 		allowlist.Add(multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()))

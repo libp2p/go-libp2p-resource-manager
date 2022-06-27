@@ -162,6 +162,10 @@ func NewResourceManager(limits Limiter, opts ...Option) (network.ResourceManager
 	return r, nil
 }
 
+func (r *resourceManager) GetAllowlist() *Allowlist {
+	return r.allowlist
+}
+
 func (r *resourceManager) ViewSystem(f func(network.ResourceScope) error) error {
 	return f(r.system)
 }
