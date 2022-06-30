@@ -47,7 +47,7 @@ func WithTrace(path string) Option {
 func WithTraceReporter(reporter TraceReporter) Option {
 	return func(r *resourceManager) error {
 		if r.trace == nil {
-			r.trace = &trace{reporters: []TraceReporter{reporter}}
+			r.trace = &trace{}
 		}
 		r.trace.reporters = append(r.trace.reporters, reporter)
 		return nil
