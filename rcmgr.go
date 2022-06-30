@@ -478,11 +478,12 @@ func newStreamScope(dir network.Direction, limit Limit, peer *peerScope, rcmgr *
 }
 
 func IsSystemScope(name string) bool {
-	return strings.HasPrefix(name, "system")
+	return name == "system"
 }
 
 func IsTransientScope(name string) bool {
 	return strings.HasPrefix(name, "transient")
+	return name == "transient"
 }
 
 func streamScopeName(streamId int64) string {
@@ -490,7 +491,7 @@ func streamScopeName(streamId int64) string {
 }
 
 func IsStreamScope(name string) bool {
-	return strings.HasPrefix(name, "stream-")
+	return strings.HasPrefix(name, "stream-") && !IsSpan(name)
 }
 
 func connScopeName(streamId int64) string {
@@ -498,7 +499,7 @@ func connScopeName(streamId int64) string {
 }
 
 func IsConnScope(name string) bool {
-	return strings.HasPrefix(name, "conn-")
+	return strings.HasPrefix(name, "conn-") && !IsSpan(name)
 }
 
 func peerScopeName(p peer.ID) string {
@@ -507,16 +508,16 @@ func peerScopeName(p peer.ID) string {
 
 // ParsePeerScopeName returns "" if name is not a peerScopeName
 func ParsePeerScopeName(name string) peer.ID {
-	if !strings.HasPrefix(name, "peer:") {
-		return peer.ID("")
+	if !strings.HasPrefix(name, "peer:") || IsSpan(name) {
+		return ""
 	}
 	parts := strings.SplitN(name, "peer:", 2)
 	if len(parts) != 2 {
-		return peer.ID("")
+		return ""
 	}
 	p, err := peer.Decode(parts[1])
 	if err != nil {
-		return peer.ID("")
+		return ""
 	}
 	return p
 }
@@ -524,14 +525,14 @@ func ParsePeerScopeName(name string) peer.ID {
 // ParseServiceScopeName returns the service name if name is a serviceScopeName.
 // Otherwise returns ""
 func ParseServiceScopeName(name string) string {
-	if strings.HasPrefix(name, "service:") {
+	if strings.HasPrefix(name, "service:") && !IsSpan(name) {
 		if strings.Contains(name, "peer:") {
 			// This is a service peer scope
 			return ""
 		}
 		parts := strings.SplitN(name, ":", 2)
 		if len(parts) != 2 {
-			return ("")
+			return ""
 		}
 
 		return parts[1]
@@ -542,7 +543,7 @@ func ParseServiceScopeName(name string) string {
 // ParseProtocolScopeName returns the service name if name is a serviceScopeName.
 // Otherwise returns ""
 func ParseProtocolScopeName(name string) string {
-	if strings.HasPrefix(name, "protocol:") {
+	if strings.HasPrefix(name, "protocol:") && !IsSpan(name) {
 		if strings.Contains(name, "peer:") {
 			// This is a protocol peer scope
 			return ""

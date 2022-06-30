@@ -235,8 +235,8 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 				// Not measuring this. I don't think it's useful.
 				break
 			} else {
-				// There shouldn't be anything here. But we keep going so the metrics will tell us if we're wrong (scope="")
-				log.Debugf("unexpected event in stats: %s", evt.Name)
+				// This could be a span
+				break
 			}
 
 			if evt.DeltaOut != 0 {
