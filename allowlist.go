@@ -146,18 +146,11 @@ func (al *Allowlist) Remove(ma multiaddr.Multiaddr) error {
 	for i > 0 {
 		i--
 		if ipNetList[i].IP.Equal(ipnet.IP) && bytes.Equal(ipNetList[i].Mask, ipnet.Mask) {
-			if i == len(ipNetList)-1 {
-				// Trim this element from the end
-				ipNetList = ipNetList[:i]
-				// We only remove one thing
-				break
-			} else {
-				// swap remove
-				ipNetList[i] = ipNetList[len(ipNetList)-1]
-				ipNetList = ipNetList[:len(ipNetList)-1]
-				// We only remove one thing
-				break
-			}
+			// swap remove
+			ipNetList[i] = ipNetList[len(ipNetList)-1]
+			ipNetList = ipNetList[:len(ipNetList)-1]
+			// We only remove one thing
+			break
 		}
 	}
 
