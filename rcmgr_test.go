@@ -10,7 +10,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-var dummyMA, _ = multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/1234")
+var dummyMA = multiaddr.StringCast("/ip4/1.2.3.4/tcp/1234")
 
 func TestResourceManager(t *testing.T) {
 	peerA := peer.ID("A")

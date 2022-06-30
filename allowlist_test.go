@@ -38,8 +38,8 @@ func TestAllowedWithPeer(t *testing.T) {
 
 	peerA := test.RandPeerIDFatal(t)
 	peerB := test.RandPeerIDFatal(t)
-	multiaddrA, _ := multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/1234")
-	multiaddrB, _ := multiaddr.NewMultiaddr("/ip4/2.2.3.4/tcp/1234")
+	multiaddrA := multiaddr.StringCast("/ip4/1.2.3.4/tcp/1234")
+	multiaddrB := multiaddr.StringCast("/ip4/2.2.3.4/tcp/1234")
 
 	testcases := []testcase{
 		{

@@ -104,12 +104,12 @@ func toIPNet(ma multiaddr.Multiaddr) (*net.IPNet, peer.ID, error) {
 // e.g. /ip4/1.2.3.4/p2p/QmFoo, /ip4/1.2.3.4, and /ip4/1.2.3.0/ipcidr/24 are valid.
 // /p2p/QmFoo is not valid.
 func (al *Allowlist) Add(ma multiaddr.Multiaddr) error {
-	al.mu.Lock()
-	defer al.mu.Unlock()
 	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
+	al.mu.Lock()
+	defer al.mu.Unlock()
 
 	if allowedPeer != peer.ID("") {
 		// We have a peerID constraint
@@ -124,16 +124,16 @@ func (al *Allowlist) Add(ma multiaddr.Multiaddr) error {
 }
 
 func (al *Allowlist) Remove(ma multiaddr.Multiaddr) error {
-	al.mu.Lock()
-	defer al.mu.Unlock()
-
 	ipnet, allowedPeer, err := toIPNet(ma)
 	if err != nil {
 		return err
 	}
+	al.mu.Lock()
+	defer al.mu.Unlock()
+
 	ipNetList := al.allowedNetworks
 
-	if allowedPeer != peer.ID("") {
+	if allowedPeer != "" {
 		// We have a peerID constraint
 		ipNetList = al.allowedPeerByNetwork[allowedPeer]
 	}
@@ -149,10 +149,14 @@ func (al *Allowlist) Remove(ma multiaddr.Multiaddr) error {
 			if i == len(ipNetList)-1 {
 				// Trim this element from the end
 				ipNetList = ipNetList[:i]
+				// We only remove one thing
+				break
 			} else {
 				// swap remove
 				ipNetList[i] = ipNetList[len(ipNetList)-1]
 				ipNetList = ipNetList[:len(ipNetList)-1]
+				// We only remove one thing
+				break
 			}
 		}
 	}
@@ -167,12 +171,12 @@ func (al *Allowlist) Remove(ma multiaddr.Multiaddr) error {
 }
 
 func (al *Allowlist) Allowed(ma multiaddr.Multiaddr) bool {
-	al.mu.RLock()
-	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)
 	if err != nil {
 		return false
 	}
+	al.mu.RLock()
+	defer al.mu.RUnlock()
 
 	for _, network := range al.allowedNetworks {
 		if network.Contains(ip) {
@@ -192,12 +196,12 @@ func (al *Allowlist) Allowed(ma multiaddr.Multiaddr) bool {
 }
 
 func (al *Allowlist) AllowedPeerAndMultiaddr(peerID peer.ID, ma multiaddr.Multiaddr) bool {
-	al.mu.RLock()
-	defer al.mu.RUnlock()
 	ip, err := manet.ToIP(ma)
 	if err != nil {
 		return false
 	}
+	al.mu.RLock()
+	defer al.mu.RUnlock()
 
 	for _, network := range al.allowedNetworks {
 		if network.Contains(ip) {
