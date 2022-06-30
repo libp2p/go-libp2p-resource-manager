@@ -69,16 +69,16 @@ var (
 	MemoryView = &view.View{Measure: memory, Aggregation: view.Sum(), TagKeys: []tag.Key{scopeTag, serviceTag, protocolTag}}
 
 	memDistribution = []float64{
-		1 << 10, // 1KB
-		1 << 12, // 4KB
-		1 << 15, // 32KB
-		1 << 20, // 1MB
-		1 << 25, // 32MB
-		1 << 28, // 256MB
-		1 << 29, // 512MB
-		1 << 30, // 1GB
-		1 << 31, // 2GB
-		1 << 32, // 4GB
+		1 << 10,   // 1KB
+		4 << 10,   // 4KB
+		32 << 10,  // 32KB
+		1 << 20,   // 1MB
+		32 << 20,  // 32MB
+		256 << 20, // 256MB
+		512 << 20, // 512MB
+		1 << 30,   // 1GB
+		2 << 30,   // 2GB
+		4 << 30,   // 4GB
 	}
 	PeerMemoryView = &view.View{
 		Measure:     peerMemory,
