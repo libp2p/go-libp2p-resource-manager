@@ -4,14 +4,11 @@ import (
 	"context"
 	"strings"
 
-	logging "github.com/ipfs/go-log/v2"
 	rcmgr "github.com/libp2p/go-libp2p-resource-manager"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 )
-
-var log = logging.Logger("rcmgrObs")
 
 var (
 	conns = stats.Int64("connections", "Number of Connections", stats.UnitDimensionless)
