@@ -77,7 +77,6 @@ func newResourceScopeSpan(owner *resourceScope, id int) *resourceScope {
 // IsSpan will return true if this name was created by newResourceScopeSpan
 func IsSpan(name string) bool {
 	return strings.Contains(name, ".span-")
-	return name == "transient"
 }
 
 // Resources implementation

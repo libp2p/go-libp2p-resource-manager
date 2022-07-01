@@ -482,7 +482,6 @@ func IsSystemScope(name string) bool {
 }
 
 func IsTransientScope(name string) bool {
-	return strings.HasPrefix(name, "transient")
 	return name == "transient"
 }
 
