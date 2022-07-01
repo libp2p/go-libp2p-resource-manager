@@ -3,6 +3,7 @@ package rcmgr
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -434,7 +435,7 @@ func newPeerScope(p peer.ID, limit Limit, rcmgr *resourceManager) *peerScope {
 	return &peerScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.system.resourceScope},
-			fmt.Sprintf("peer:%s", p), rcmgr.trace, rcmgr.metrics),
+			peerScopeName(p), rcmgr.trace, rcmgr.metrics),
 		peer:  p,
 		rcmgr: rcmgr,
 	}
@@ -444,7 +445,7 @@ func newConnectionScope(dir network.Direction, usefd bool, limit Limit, rcmgr *r
 	return &connectionScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.transient.resourceScope, rcmgr.system.resourceScope},
-			fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
+			connScopeName(rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
 		dir:      dir,
 		usefd:    usefd,
 		rcmgr:    rcmgr,
@@ -456,7 +457,7 @@ func newAllowListedConnectionScope(dir network.Direction, usefd bool, limit Limi
 	return &connectionScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{rcmgr.allowlistedTransient.resourceScope, rcmgr.allowlistedSystem.resourceScope},
-			fmt.Sprintf("conn-%d", rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
+			connScopeName(rcmgr.nextConnId()), rcmgr.trace, rcmgr.metrics),
 		dir:           dir,
 		usefd:         usefd,
 		rcmgr:         rcmgr,
@@ -469,11 +470,91 @@ func newStreamScope(dir network.Direction, limit Limit, peer *peerScope, rcmgr *
 	return &streamScope{
 		resourceScope: newResourceScope(limit,
 			[]*resourceScope{peer.resourceScope, rcmgr.transient.resourceScope, rcmgr.system.resourceScope},
-			fmt.Sprintf("stream-%d", rcmgr.nextStreamId()), rcmgr.trace, rcmgr.metrics),
+			streamScopeName(rcmgr.nextStreamId()), rcmgr.trace, rcmgr.metrics),
 		dir:   dir,
 		rcmgr: peer.rcmgr,
 		peer:  peer,
 	}
+}
+
+func IsSystemScope(name string) bool {
+	return name == "system"
+}
+
+func IsTransientScope(name string) bool {
+	return name == "transient"
+}
+
+func streamScopeName(streamId int64) string {
+	return fmt.Sprintf("stream-%d", streamId)
+}
+
+func IsStreamScope(name string) bool {
+	return strings.HasPrefix(name, "stream-") && !IsSpan(name)
+}
+
+func connScopeName(streamId int64) string {
+	return fmt.Sprintf("conn-%d", streamId)
+}
+
+func IsConnScope(name string) bool {
+	return strings.HasPrefix(name, "conn-") && !IsSpan(name)
+}
+
+func peerScopeName(p peer.ID) string {
+	return fmt.Sprintf("peer:%s", p)
+}
+
+// ParsePeerScopeName returns "" if name is not a peerScopeName
+func ParsePeerScopeName(name string) peer.ID {
+	if !strings.HasPrefix(name, "peer:") || IsSpan(name) {
+		return ""
+	}
+	parts := strings.SplitN(name, "peer:", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	p, err := peer.Decode(parts[1])
+	if err != nil {
+		return ""
+	}
+	return p
+}
+
+// ParseServiceScopeName returns the service name if name is a serviceScopeName.
+// Otherwise returns ""
+func ParseServiceScopeName(name string) string {
+	if strings.HasPrefix(name, "service:") && !IsSpan(name) {
+		if strings.Contains(name, "peer:") {
+			// This is a service peer scope
+			return ""
+		}
+		parts := strings.SplitN(name, ":", 2)
+		if len(parts) != 2 {
+			return ""
+		}
+
+		return parts[1]
+	}
+	return ""
+}
+
+// ParseProtocolScopeName returns the service name if name is a serviceScopeName.
+// Otherwise returns ""
+func ParseProtocolScopeName(name string) string {
+	if strings.HasPrefix(name, "protocol:") && !IsSpan(name) {
+		if strings.Contains(name, "peer:") {
+			// This is a protocol peer scope
+			return ""
+		}
+		parts := strings.SplitN(name, ":", 2)
+		if len(parts) != 2 {
+			return ("")
+		}
+
+		return parts[1]
+	}
+	return ""
 }
 
 func (s *serviceScope) Name() string {

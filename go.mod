@@ -8,6 +8,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.6.0
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/stretchr/testify v1.7.0
+	go.opencensus.io v0.23.0
 )
 
 require (

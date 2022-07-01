@@ -2,6 +2,7 @@ package rcmgr
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/network"
@@ -71,6 +72,11 @@ func newResourceScopeSpan(owner *resourceScope, id int) *resourceScope {
 	}
 	r.trace.CreateScope(r.name, r.rc.limit)
 	return r
+}
+
+// IsSpan will return true if this name was created by newResourceScopeSpan
+func IsSpan(name string) bool {
+	return strings.Contains(name, ".span-")
 }
 
 // Resources implementation
