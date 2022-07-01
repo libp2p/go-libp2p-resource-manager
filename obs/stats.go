@@ -17,19 +17,19 @@ var (
 	conns = stats.Int64("connections", "Number of Connections", stats.UnitDimensionless)
 
 	peerConns         = stats.Int64("peer/connections", "Number of connections this peer has", stats.UnitDimensionless)
-	peerConnsNegative = stats.Int64("peer/connections_negative", "Number of connections this peer had", stats.UnitDimensionless)
+	peerConnsNegative = stats.Int64("peer/connections_negative", "Number of connections this peer had. This is used to get the current connection number per peer histogram by subtracting this from the peer/connections histogram", stats.UnitDimensionless)
 
 	streams = stats.Int64("streams", "Number of Streams", stats.UnitDimensionless)
 
 	peerStreams         = stats.Int64("peer/streams", "Number of streams this peer has", stats.UnitDimensionless)
-	peerStreamsNegative = stats.Int64("peer/streams_negative", "Number of streams this peer had", stats.UnitDimensionless)
+	peerStreamsNegative = stats.Int64("peer/streams_negative", "Number of streams this peer had. This is used to get the current streams number per peer histogram by subtracting this from the peer/streams histogram", stats.UnitDimensionless)
 
 	memory             = stats.Int64("memory", "Amount of memory reserved as reported to the Resource Manager", stats.UnitDimensionless)
 	peerMemory         = stats.Int64("peer/memory", "Amount of memory currently reseved for peer", stats.UnitDimensionless)
-	peerMemoryNegative = stats.Int64("peer/memory_negative", "Amount of memory previously reseved for peer", stats.UnitDimensionless)
+	peerMemoryNegative = stats.Int64("peer/memory_negative", "Amount of memory previously reseved for peer. This is used to get the current memory per peer histogram by subtracting this from the peer/memory histogram", stats.UnitDimensionless)
 
 	connMemory         = stats.Int64("conn/memory", "Amount of memory currently reseved for the connection", stats.UnitDimensionless)
-	connMemoryNegative = stats.Int64("conn/memory_negative", "Amount of memory previously reseved for the connection", stats.UnitDimensionless)
+	connMemoryNegative = stats.Int64("conn/memory_negative", "Amount of memory previously reseved for the connection.  This is used to get the current memory per connection histogram by subtracting this from the conn/memory histogram", stats.UnitDimensionless)
 
 	fds = stats.Int64("fds", "Number of fds as reported to the Resource Manager", stats.UnitDimensionless)
 
