@@ -24,6 +24,12 @@ type ScalingLimitConfig struct {
 	TransientBaseLimit     BaseLimit
 	TransientLimitIncrease BaseLimitIncrease
 
+	AllowlistedSystemBaseLimit     BaseLimit
+	AllowlistedSystemLimitIncrease BaseLimitIncrease
+
+	AllowlistedTransientBaseLimit     BaseLimit
+	AllowlistedTransientLimitIncrease BaseLimitIncrease
+
 	ServiceBaseLimit     BaseLimit
 	ServiceLimitIncrease BaseLimitIncrease
 	ServiceLimits        map[string]baseLimitConfig // use AddServiceLimit to modify
@@ -105,6 +111,12 @@ type LimitConfig struct {
 	System    BaseLimit `json:",omitempty"`
 	Transient BaseLimit `json:",omitempty"`
 
+	// Limits that are applied to resources with an allowlisted multiaddr.
+	// These will only be used if the normal System & Transient limits are
+	// reached.
+	AllowlistedSystem    BaseLimit `json:",omitempty"`
+	AllowlistedTransient BaseLimit `json:",omitempty"`
+
 	ServiceDefault BaseLimit            `json:",omitempty"`
 	Service        map[string]BaseLimit `json:",omitempty"`
 
@@ -127,6 +139,8 @@ type LimitConfig struct {
 func (cfg *LimitConfig) Apply(c LimitConfig) {
 	cfg.System.Apply(c.System)
 	cfg.Transient.Apply(c.Transient)
+	cfg.AllowlistedSystem.Apply(c.AllowlistedSystem)
+	cfg.AllowlistedTransient.Apply(c.AllowlistedTransient)
 	cfg.ServiceDefault.Apply(c.ServiceDefault)
 	cfg.ProtocolDefault.Apply(c.ProtocolDefault)
 	cfg.ProtocolPeerDefault.Apply(c.ProtocolPeerDefault)
@@ -232,15 +246,17 @@ func (cfg *ScalingLimitConfig) Scale(memory int64, numFD int) LimitConfig {
 		scaleFactor = int((memory - 128<<20) >> 20)
 	}
 	lc := LimitConfig{
-		System:              scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, scaleFactor, numFD),
-		Transient:           scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, scaleFactor, numFD),
-		ServiceDefault:      scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, scaleFactor, numFD),
-		ServicePeerDefault:  scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, scaleFactor, numFD),
-		ProtocolDefault:     scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, scaleFactor, numFD),
-		ProtocolPeerDefault: scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, scaleFactor, numFD),
-		PeerDefault:         scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, scaleFactor, numFD),
-		Conn:                scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
-		Stream:              scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
+		System:               scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, scaleFactor, numFD),
+		Transient:            scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, scaleFactor, numFD),
+		AllowlistedSystem:    scale(cfg.AllowlistedSystemBaseLimit, cfg.AllowlistedSystemLimitIncrease, scaleFactor, numFD),
+		AllowlistedTransient: scale(cfg.AllowlistedTransientBaseLimit, cfg.AllowlistedTransientLimitIncrease, scaleFactor, numFD),
+		ServiceDefault:       scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, scaleFactor, numFD),
+		ServicePeerDefault:   scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, scaleFactor, numFD),
+		ProtocolDefault:      scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, scaleFactor, numFD),
+		ProtocolPeerDefault:  scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, scaleFactor, numFD),
+		PeerDefault:          scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, scaleFactor, numFD),
+		Conn:                 scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
+		Stream:               scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
 	}
 	if cfg.ServiceLimits != nil {
 		lc.Service = make(map[string]BaseLimit)
@@ -336,6 +352,55 @@ var DefaultLimits = ScalingLimitConfig{
 	},
 
 	TransientLimitIncrease: BaseLimitIncrease{
+		ConnsInbound:    16,
+		ConnsOutbound:   32,
+		Conns:           32,
+		StreamsInbound:  128,
+		StreamsOutbound: 256,
+		Streams:         256,
+		Memory:          128 << 20,
+		FDFraction:      0.25,
+	},
+
+	// Setting the allowlisted limits to be the same as the normal limits. The
+	// allowlist only activates when you reach your normal system/transient
+	// limits. So it's okay if these limits err on the side of being too big,
+	// since most of the time you won't even use any of these. Tune these down
+	// if you want to manager your resources against an allowlisted endpoint.
+	AllowlistedSystemBaseLimit: BaseLimit{
+		ConnsInbound:    64,
+		ConnsOutbound:   128,
+		Conns:           128,
+		StreamsInbound:  64 * 16,
+		StreamsOutbound: 128 * 16,
+		Streams:         128 * 16,
+		Memory:          128 << 20,
+		FD:              256,
+	},
+
+	AllowlistedSystemLimitIncrease: BaseLimitIncrease{
+		ConnsInbound:    64,
+		ConnsOutbound:   128,
+		Conns:           128,
+		StreamsInbound:  64 * 16,
+		StreamsOutbound: 128 * 16,
+		Streams:         128 * 16,
+		Memory:          1 << 30,
+		FDFraction:      1,
+	},
+
+	AllowlistedTransientBaseLimit: BaseLimit{
+		ConnsInbound:    32,
+		ConnsOutbound:   64,
+		Conns:           64,
+		StreamsInbound:  128,
+		StreamsOutbound: 256,
+		Streams:         256,
+		Memory:          32 << 20,
+		FD:              64,
+	},
+
+	AllowlistedTransientLimitIncrease: BaseLimitIncrease{
 		ConnsInbound:    16,
 		ConnsOutbound:   32,
 		Conns:           32,
@@ -451,13 +516,15 @@ var infiniteBaseLimit = BaseLimit{
 // InfiniteLimits are a limiter configuration that uses infinite limits, thus effectively not limiting anything.
 // Keep in mind that the operating system limits the number of file descriptors that an application can use.
 var InfiniteLimits = LimitConfig{
-	System:              infiniteBaseLimit,
-	Transient:           infiniteBaseLimit,
-	ServiceDefault:      infiniteBaseLimit,
-	ServicePeerDefault:  infiniteBaseLimit,
-	ProtocolDefault:     infiniteBaseLimit,
-	ProtocolPeerDefault: infiniteBaseLimit,
-	PeerDefault:         infiniteBaseLimit,
-	Conn:                infiniteBaseLimit,
-	Stream:              infiniteBaseLimit,
+	System:               infiniteBaseLimit,
+	Transient:            infiniteBaseLimit,
+	AllowlistedSystem:    infiniteBaseLimit,
+	AllowlistedTransient: infiniteBaseLimit,
+	ServiceDefault:       infiniteBaseLimit,
+	ServicePeerDefault:   infiniteBaseLimit,
+	ProtocolDefault:      infiniteBaseLimit,
+	ProtocolPeerDefault:  infiniteBaseLimit,
+	PeerDefault:          infiniteBaseLimit,
+	Conn:                 infiniteBaseLimit,
+	Stream:               infiniteBaseLimit,
 }
