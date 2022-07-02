@@ -4,121 +4,50 @@ import (
 	"os"
 	"testing"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/stretchr/testify/require"
 )
+
+func withMemoryLimit(l BaseLimit, m int64) BaseLimit {
+	l2 := l
+	l2.Memory = m
+	return l2
+}
 
 func TestLimitConfigParser(t *testing.T) {
 	in, err := os.Open("limit_config_test.json")
 	require.NoError(t, err)
 	defer in.Close()
 
-	limiter, err := NewDefaultLimiterFromJSON(in)
+	DefaultLimits.AddServiceLimit("C", DefaultLimits.ServiceBaseLimit, BaseLimitIncrease{})
+	DefaultLimits.AddProtocolPeerLimit("C", DefaultLimits.ServiceBaseLimit, BaseLimitIncrease{})
+	defaults := DefaultLimits.AutoScale()
+	cfg, err := readLimiterConfigFromJSON(in, defaults)
 	require.NoError(t, err)
 
-	require.Equal(t,
-		&DynamicLimit{
-			MemoryLimit: MemoryLimit{
-				MinMemory:      16384,
-				MaxMemory:      65536,
-				MemoryFraction: 0.125,
-			},
-			BaseLimit: BaseLimit{
-				Streams:         64,
-				StreamsInbound:  32,
-				StreamsOutbound: 48,
-				Conns:           16,
-				ConnsInbound:    8,
-				ConnsOutbound:   16,
-				FD:              16,
-			},
-		},
-		limiter.SystemLimits)
+	require.Equal(t, int64(65536), cfg.System.Memory)
+	require.Equal(t, defaults.System.Streams, cfg.System.Streams)
+	require.Equal(t, defaults.System.StreamsInbound, cfg.System.StreamsInbound)
+	require.Equal(t, defaults.System.StreamsOutbound, cfg.System.StreamsOutbound)
+	require.Equal(t, 16, cfg.System.Conns)
+	require.Equal(t, 8, cfg.System.ConnsInbound)
+	require.Equal(t, 16, cfg.System.ConnsOutbound)
+	require.Equal(t, 16, cfg.System.FD)
 
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    4096,
-			BaseLimit: DefaultLimits.TransientBaseLimit,
-		},
-		limiter.TransientLimits)
+	require.Equal(t, defaults.Transient, cfg.Transient)
+	require.Equal(t, int64(8765), cfg.ServiceDefault.Memory)
 
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    8192,
-			BaseLimit: DefaultLimits.ServiceBaseLimit,
-		},
-		limiter.DefaultServiceLimits)
+	require.Contains(t, cfg.Service, "A")
+	require.Equal(t, withMemoryLimit(cfg.ServiceDefault, 8192), cfg.Service["A"])
+	require.Contains(t, cfg.Service, "B")
+	require.Equal(t, cfg.ServiceDefault, cfg.Service["B"])
+	require.Contains(t, cfg.Service, "C")
+	require.Equal(t, defaults.Service["C"], cfg.Service["C"])
 
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    2048,
-			BaseLimit: DefaultLimits.ServicePeerBaseLimit,
-		},
-		limiter.DefaultServicePeerLimits)
-
-	require.Equal(t, 1, len(limiter.ServiceLimits))
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    8192,
-			BaseLimit: DefaultLimits.ServiceBaseLimit,
-		},
-		limiter.ServiceLimits["A"])
-
-	require.Equal(t, 1, len(limiter.ServicePeerLimits))
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    4096,
-			BaseLimit: DefaultLimits.ServicePeerBaseLimit,
-		},
-		limiter.ServicePeerLimits["A"])
-
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    2048,
-			BaseLimit: DefaultLimits.ProtocolBaseLimit,
-		},
-		limiter.DefaultProtocolLimits)
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    1024,
-			BaseLimit: DefaultLimits.ProtocolPeerBaseLimit,
-		},
-		limiter.DefaultProtocolPeerLimits)
-
-	require.Equal(t, 1, len(limiter.ProtocolLimits))
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    8192,
-			BaseLimit: DefaultLimits.ProtocolBaseLimit,
-		},
-		limiter.ProtocolLimits["/A"])
-
-	require.Equal(t, 1, len(limiter.ProtocolPeerLimits))
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    4096,
-			BaseLimit: DefaultLimits.ProtocolPeerBaseLimit,
-		},
-		limiter.ProtocolPeerLimits["/A"])
-
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    4096,
-			BaseLimit: DefaultLimits.PeerBaseLimit,
-		},
-		limiter.DefaultPeerLimits)
-
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    1 << 20,
-			BaseLimit: DefaultLimits.ConnBaseLimit,
-		},
-		limiter.ConnLimits)
-
-	require.Equal(t,
-		&StaticLimit{
-			Memory:    16 << 20,
-			BaseLimit: DefaultLimits.StreamBaseLimit,
-		},
-		limiter.StreamLimits)
-
+	require.Equal(t, int64(4096), cfg.PeerDefault.Memory)
+	peerID, err := peer.Decode("12D3KooWPFH2Bx2tPfw6RLxN8k2wh47GRXgkt9yrAHU37zFwHWzS")
+	require.NoError(t, err)
+	require.Contains(t, cfg.Peer, peerID)
+	require.Equal(t, int64(4097), cfg.Peer[peerID].Memory)
 }
