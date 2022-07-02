@@ -977,38 +977,32 @@ func TestResourceManager(t *testing.T) {
 func TestResourceManagerWithAllowlist(t *testing.T) {
 	peerA := test.RandPeerIDFatal(t)
 
-	limits := DefaultLimits.Scale(1<<30, 100)
+	limits := DefaultLimits.AutoScale()
 	limits.System.Conns = 0
-	limits.System.ConnsInbound = 0
-	limits.System.ConnsOutbound = 0
 	limits.Transient.Conns = 0
-	limits.Transient.ConnsInbound = 0
-	limits.Transient.ConnsOutbound = 0
+
+	baseLimit := BaseLimit{
+		Conns:         2,
+		ConnsInbound:  2,
+		ConnsOutbound: 1,
+	}
+	baseLimit.Apply(limits.AllowlistedSystem)
+	limits.AllowlistedSystem = baseLimit
+
+	baseLimit = BaseLimit{
+		Conns:         1,
+		ConnsInbound:  1,
+		ConnsOutbound: 1,
+	}
+	baseLimit.Apply(limits.AllowlistedTransient)
+	limits.AllowlistedTransient = baseLimit
+
 	rcmgr, err := NewResourceManager(NewFixedLimiter(limits), WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
 		multiaddr.StringCast("/ip4/1.2.3.4"),
 		multiaddr.StringCast("/ip4/4.3.2.1/p2p/" + peerA.String()),
 	}))
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	{
-		// Setup allowlist. TODO, replace this with a config once config changes are in
-		r := rcmgr.(*resourceManager)
-
-		sysLimit := limits.System
-		sysLimit.Conns = 2
-		sysLimit.ConnsInbound = 2
-		sysLimit.ConnsOutbound = 1
-		r.allowlistedSystem = newSystemScope(&sysLimit, r, "allowlistedSystem")
-		r.allowlistedSystem.IncRef()
-
-		transLimit := limits.Transient
-		transLimit.Conns = 1
-		transLimit.ConnsInbound = 1
-		transLimit.ConnsOutbound = 1
-		r.allowlistedTransient = newTransientScope(&transLimit, r, "allowlistedTransient", r.allowlistedSystem.resourceScope)
-		r.allowlistedTransient.IncRef()
 	}
 
 	// A connection comes in from a non-allowlisted ip address

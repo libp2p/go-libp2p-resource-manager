@@ -29,6 +29,8 @@ type Limit interface {
 type Limiter interface {
 	GetSystemLimits() Limit
 	GetTransientLimits() Limit
+	GetAllowlistedSystemLimits() Limit
+	GetAllowlistedTransientLimits() Limit
 	GetServiceLimits(svc string) Limit
 	GetServicePeerLimits(svc string) Limit
 	GetProtocolLimits(proto protocol.ID) Limit
@@ -194,6 +196,14 @@ func (l *fixedLimiter) GetSystemLimits() Limit {
 
 func (l *fixedLimiter) GetTransientLimits() Limit {
 	return &l.Transient
+}
+
+func (l *fixedLimiter) GetAllowlistedSystemLimits() Limit {
+	return &l.AllowlistedSystem
+}
+
+func (l *fixedLimiter) GetAllowlistedTransientLimits() Limit {
+	return &l.AllowlistedTransient
 }
 
 func (l *fixedLimiter) GetServiceLimits(svc string) Limit {
