@@ -366,7 +366,7 @@ var DefaultLimits = ScalingLimitConfig{
 	// allowlist only activates when you reach your normal system/transient
 	// limits. So it's okay if these limits err on the side of being too big,
 	// since most of the time you won't even use any of these. Tune these down
-	// if you want to manager your resources against an allowlisted endpoint.
+	// if you want to manage your resources against an allowlisted endpoint.
 	AllowlistedSystemBaseLimit: BaseLimit{
 		ConnsInbound:    64,
 		ConnsOutbound:   128,
