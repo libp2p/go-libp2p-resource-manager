@@ -302,7 +302,7 @@ these limits, which will be applied on nodes that have sufficient memory.
 A `ScalingLimitConfig` can be converted into a `LimitConfig` (which can then be
 used to initialize a fixed limiter as shown above) by calling the `Scale` method.
 The `Scale` method takes two parameters: the amount of memory and the number of file
-descriptors.that an application is willing to dedicate to libp2p.
+descriptors that an application is willing to dedicate to libp2p.
 
 These amounts will differ between use cases: A blockchain node running on a dedicated
 server might have a lot of memory, and dedicate 1/4 of that memory to libp2p. On the
@@ -312,7 +312,7 @@ memory to libp2p.
 
 For convenience, the `ScalingLimitConfig` also provides an `AutoScale` method,
 which determines the amount of memory and file descriptors available on the
-system, and dedicates 1/8 of the memory and 1/2 of the file descriptors to libp2p.
+system, and dedicates up to 1/8 of the memory and 1/2 of the file descriptors to libp2p.
 
 For example, one might set:
 ```go
@@ -342,9 +342,9 @@ var scalingLimits = ScalingLimitConfig{
 
 The base limit (`SystemBaseLimit`) here is the minimum configuration that any
 node will have, no matter how little memory it possesses. For every GB of memory
-passed into the `Scale` method, the increase is (`SystemLimitIncrease`) is added.
+passed into the `Scale` method, an increase  of (`SystemLimitIncrease`) is added.
 
-Example: Calling `Scale` with 4 GB of memory will result in a limit of 384 for
+For Example, calling `Scale` with 4 GB of memory will result in a limit of 384 for
 `Conns` (128 + 4*64).
 
 The `FDFraction` defines how many of the file descriptors are allocated to this
