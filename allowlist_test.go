@@ -11,6 +11,29 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
+func ExampleWithAllowlistedMultiaddrs() {
+	somePeer, err := test.RandPeerID()
+	if err != nil {
+		panic("Failed to generate somePeer")
+	}
+
+	limits := DefaultLimits.AutoScale()
+	rcmgr, err := NewResourceManager(NewFixedLimiter(limits), WithAllowlistedMultiaddrs([]multiaddr.Multiaddr{
+		// Any peer connecting from this IP address
+		multiaddr.StringCast("/ip4/1.2.3.4"),
+		// Only the specified peer from this address
+		multiaddr.StringCast("/ip4/2.2.3.4/p2p/" + peer.Encode(somePeer)),
+		// Only peers from this IP Address range
+		multiaddr.StringCast("/ip4/1.2.3.0/ipcidr/24"),
+	}))
+	if err != nil {
+		panic("Failed to start resource manager")
+	}
+
+	// Use rcmgr as before
+	_ = rcmgr
+}
+
 func TestAllowedSimple(t *testing.T) {
 	allowlist := newAllowlist()
 	ma := multiaddr.StringCast("/ip4/1.2.3.4/tcp/1234")
