@@ -23,7 +23,7 @@ func ExampleWithAllowlistedMultiaddrs() {
 		multiaddr.StringCast("/ip4/1.2.3.4"),
 		// Only the specified peer from this address
 		multiaddr.StringCast("/ip4/2.2.3.4/p2p/" + peer.Encode(somePeer)),
-		// Only peers from this IP Address range
+		// Only peers from this 1.2.3.0/24 IP address range
 		multiaddr.StringCast("/ip4/1.2.3.0/ipcidr/24"),
 	}))
 	if err != nil {
