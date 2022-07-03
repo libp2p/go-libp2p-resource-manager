@@ -1005,6 +1005,11 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ableToGetAllowlist := GetAllowlist(rcmgr)
+	if ableToGetAllowlist == nil {
+		t.Fatal("Expected to be able to get the allowlist")
+	}
+
 	// A connection comes in from a non-allowlisted ip address
 	_, err = rcmgr.OpenConnection(network.DirInbound, true, multiaddr.StringCast("/ip4/1.2.3.5"))
 	if err == nil {

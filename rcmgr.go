@@ -167,6 +167,18 @@ func (r *resourceManager) GetAllowlist() *Allowlist {
 	return r.allowlist
 }
 
+// GetAllowlist tries to get the allowlist from the given resourcemanager
+// interface by checking to see if its concrete type is a resourceManager.
+// Returns nil if it fails to get the allowlist.
+func GetAllowlist(rcmgr network.ResourceManager) *Allowlist {
+	r, ok := rcmgr.(*resourceManager)
+	if !ok {
+		return nil
+	}
+
+	return r.allowlist
+}
+
 func (r *resourceManager) ViewSystem(f func(network.ResourceScope) error) error {
 	return f(r.system)
 }
