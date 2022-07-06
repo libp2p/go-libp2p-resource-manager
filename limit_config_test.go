@@ -1,6 +1,8 @@
 package rcmgr
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -50,4 +52,11 @@ func TestLimitConfigParser(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, cfg.Peer, peerID)
 	require.Equal(t, int64(4097), cfg.Peer[peerID].Memory)
+
+	// Roundtrip
+	jsonBytes, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	cfgAfterRoundTrip, err := readLimiterConfigFromJSON(bytes.NewReader(jsonBytes), defaults)
+	require.NoError(t, err)
+	require.Equal(t, cfg, cfgAfterRoundTrip)
 }
