@@ -1004,6 +1004,7 @@ func TestResourceManagerWithAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer rcmgr.Close()
 
 	ableToGetAllowlist := GetAllowlist(rcmgr)
 	if ableToGetAllowlist == nil {

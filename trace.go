@@ -19,7 +19,7 @@ type trace struct {
 
 	ctx    context.Context
 	cancel func()
-	closed chan struct{}
+	wg     sync.WaitGroup
 
 	mx            sync.Mutex
 	done          bool
@@ -232,7 +232,7 @@ func (t *trace) push(evt TraceEvt) {
 }
 
 func (t *trace) backgroundWriter(out io.WriteCloser) {
-	defer close(t.closed)
+	defer t.wg.Done()
 	defer out.Close()
 
 	gzOut := gzip.NewWriter(out)
@@ -315,7 +315,6 @@ func (t *trace) Start(limits Limiter) error {
 	}
 
 	t.ctx, t.cancel = context.WithCancel(context.Background())
-	t.closed = make(chan struct{})
 
 	if t.path != "" {
 		out, err := os.OpenFile(t.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
@@ -323,6 +322,7 @@ func (t *trace) Start(limits Limiter) error {
 			return nil
 		}
 
+		t.wg.Add(1)
 		go t.backgroundWriter(out)
 	}
 
@@ -350,7 +350,7 @@ func (t *trace) Close() error {
 	t.done = true
 	t.mx.Unlock()
 
-	<-t.closed
+	t.wg.Wait()
 	return nil
 }
 
