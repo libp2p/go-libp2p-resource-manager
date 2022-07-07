@@ -1,9 +1,55 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__elements": [],
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "bargauge",
+      "name": "Bar gauge",
+      "version": ""
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.5.6"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -21,11 +67,28 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 65,
+      "panels": [],
+      "title": "Blocked Resources",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "This should be empty. If it's large you are running into your resource manager limits.",
       "fieldConfig": {
         "defaults": {
@@ -81,7 +144,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "id": 67,
       "options": {
@@ -99,7 +162,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rate(rcmgr_trace_metrics_blocked_resources[$__rate_interval])",
@@ -117,19 +180,6 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
-      },
-      "id": 65,
-      "panels": [],
-      "title": "Blocked Resources",
-      "type": "row"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
         "y": 9
       },
       "id": 42,
@@ -138,6 +188,10 @@
       "type": "row"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -210,7 +264,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"system\"}",
@@ -223,6 +277,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -295,7 +353,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"transient\"}",
@@ -308,6 +366,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many streams does each service have open",
       "fieldConfig": {
         "defaults": {
@@ -381,7 +443,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"service\"}",
@@ -394,6 +456,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many streams does each protocol have open.\n\nA protocol is similiar to a service except there may be many protocols for a single service. A service may have \nmultiple protocols for backwards compatibility. For example, bitswap the service is a single entity, but it supports bitswap protocols v1.1 and v1.2.\n\nA service is attached to a stream manually by the protocol developer. A service may be missing if there is no `StreamScope.SetService` call.",
       "fieldConfig": {
         "defaults": {
@@ -467,7 +533,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"protocol\"}",
@@ -480,6 +546,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -553,7 +623,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
@@ -564,7 +634,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
@@ -576,7 +646,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
@@ -590,6 +660,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many peers have N-0.1 streams open",
       "fieldConfig": {
         "defaults": {
@@ -601,8 +675,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -637,7 +710,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "rcmgr_trace_metrics_peer_streams_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"inbound\"}",
@@ -652,6 +725,10 @@
       "type": "bargauge"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many peers have N-0.1 streams open",
       "fieldConfig": {
         "defaults": {
@@ -663,8 +740,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -699,7 +775,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "rcmgr_trace_metrics_peer_streams_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"outbound\"}",
@@ -727,6 +803,10 @@
       "type": "row"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "gridPos": {
         "h": 9,
         "w": 24,
@@ -743,6 +823,10 @@
       "type": "text"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -781,8 +865,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -815,7 +898,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_connections{scope=\"system\"}",
@@ -828,6 +911,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -866,8 +953,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -900,7 +986,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_connections{scope=\"transient\"}",
@@ -913,6 +999,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "gridPos": {
         "h": 3,
         "w": 24,
@@ -929,6 +1019,10 @@
       "type": "text"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -968,8 +1062,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1002,7 +1095,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
@@ -1013,7 +1106,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
@@ -1025,7 +1118,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
@@ -1039,6 +1132,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many peers have N-0.1 connections open",
       "fieldConfig": {
         "defaults": {
@@ -1050,8 +1147,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1086,7 +1182,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "rcmgr_trace_metrics_peer_connections_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"inbound\"}",
@@ -1101,6 +1197,10 @@
       "type": "bargauge"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "How many peers have N-0.1 connections open",
       "fieldConfig": {
         "defaults": {
@@ -1112,8 +1212,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1148,7 +1247,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "rcmgr_trace_metrics_peer_connections_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"outbound\"}  ",
@@ -1176,6 +1275,10 @@
       "type": "row"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "As reported to Resource Manager",
       "fieldConfig": {
         "defaults": {
@@ -1215,8 +1318,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1250,7 +1352,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_memory{scope=\"system\"}",
@@ -1263,6 +1365,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "As reported to Resource Manager",
       "fieldConfig": {
         "defaults": {
@@ -1302,8 +1408,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1337,7 +1442,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_memory{scope=\"protocol\"}",
@@ -1350,6 +1455,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "As reported to Resource Manager",
       "fieldConfig": {
         "defaults": {
@@ -1389,8 +1498,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1424,7 +1532,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_memory{scope=\"service\"}",
@@ -1437,6 +1545,10 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "As reported to the resource manager",
       "fieldConfig": {
         "defaults": {
@@ -1476,8 +1588,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1534,7 +1645,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
@@ -1545,7 +1656,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
@@ -1557,7 +1668,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
@@ -1569,7 +1680,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_peer_memory_count-rcmgr_trace_metrics_peer_memory_negative_count",
@@ -1596,6 +1707,10 @@
       "type": "row"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "As reported to the resource manager",
       "fieldConfig": {
         "defaults": {
@@ -1635,8 +1750,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1669,7 +1783,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_fds",
@@ -1683,7 +1797,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 35,
+  "schemaVersion": 36,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -1697,6 +1811,6 @@
   "timezone": "",
   "title": "Resource Manager",
   "uid": "MgmGIjjnk",
-  "version": 14,
+  "version": 1,
   "weekStart": ""
 }
