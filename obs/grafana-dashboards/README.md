@@ -40,3 +40,10 @@ import (
 It should be fairly similar for other exporters. See the [OpenCensus
 docs](https://opencensus.io/exporters/supported-exporters/go/) to see how to
 export to another exporter.
+
+## Updating Dashboard json
+
+Use the share functionality on an existing dashboard, and make sure to toggle
+"Export for sharing externally". See the [Grafana
+Docs](https://grafana.com/docs/grafana/latest/dashboards/export-import/#exporting-a-dashboard)
+for more details.
