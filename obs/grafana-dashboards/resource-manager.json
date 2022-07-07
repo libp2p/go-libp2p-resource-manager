@@ -269,7 +269,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"system\"}",
           "interval": "",
-          "legendFormat": "{{dir}}",
+          "legendFormat": "{{dir}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -358,7 +358,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"transient\"}",
           "interval": "",
-          "legendFormat": "{{dir}}",
+          "legendFormat": "{{dir}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -448,7 +448,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"service\"}",
           "interval": "",
-          "legendFormat": "{{dir}} {{service}}",
+          "legendFormat": "{{dir}} {{service}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -538,7 +538,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_streams{scope=\"protocol\"}",
           "interval": "",
-          "legendFormat": "{{dir}} {{protocol}}",
+          "legendFormat": "{{dir}} {{protocol}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -628,7 +628,7 @@
           "exemplar": true,
           "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
           "interval": "",
-          "legendFormat": "p50 {{dir}} streams per peer",
+          "legendFormat": "p50 {{dir}} streams per peer – {{instance}}",
           "refId": "A"
         },
         {
@@ -640,7 +640,7 @@
           "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
-          "legendFormat": "p90 {{dir}} streams per peer",
+          "legendFormat": "p90 {{dir}} streams per peer – {{instance}}",
           "refId": "B"
         },
         {
@@ -652,7 +652,7 @@
           "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_streams_bucket - rcmgr_trace_metrics_peer_streams_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
-          "legendFormat": "max {{dir}} streams per peer",
+          "legendFormat": "max {{dir}} streams per peer – {{instance}}",
           "refId": "C"
         }
       ],
@@ -713,7 +713,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
-          "expr": "rcmgr_trace_metrics_peer_streams_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"inbound\"}",
+          "expr": "sum without (instance) (rcmgr_trace_metrics_peer_streams_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"inbound\"})",
           "format": "heatmap",
           "hide": false,
           "interval": "",
@@ -721,7 +721,7 @@
           "refId": "A"
         }
       ],
-      "title": "Current inbound streams per peer histogram",
+      "title": "Current inbound streams per peer histogram. Across all instances",
       "type": "bargauge"
     },
     {
@@ -778,7 +778,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
-          "expr": "rcmgr_trace_metrics_peer_streams_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"outbound\"}",
+          "expr": "sum without (instance) (rcmgr_trace_metrics_peer_streams_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_streams_negative_bucket{dir=\"outbound\"})",
           "format": "heatmap",
           "hide": false,
           "interval": "",
@@ -786,7 +786,7 @@
           "refId": "A"
         }
       ],
-      "title": "Current outbound streams per peer histogram",
+      "title": "Current outbound streams per peer histogram. Across all instances",
       "type": "bargauge"
     },
     {
@@ -903,7 +903,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_connections{scope=\"system\"}",
           "interval": "",
-          "legendFormat": "{{dir}}",
+          "legendFormat": "{{dir}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -991,7 +991,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_connections{scope=\"transient\"}",
           "interval": "",
-          "legendFormat": "{{dir}}",
+          "legendFormat": "{{dir}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -1100,7 +1100,7 @@
           "exemplar": true,
           "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
           "interval": "",
-          "legendFormat": "p50 {{dir}} connections per peer",
+          "legendFormat": "p50 {{dir}} connections per peer – {{instance}}",
           "refId": "A"
         },
         {
@@ -1112,7 +1112,7 @@
           "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
-          "legendFormat": "p90 {{dir}} connections per peer",
+          "legendFormat": "p90 {{dir}} connections per peer – {{instance}}",
           "refId": "B"
         },
         {
@@ -1124,7 +1124,7 @@
           "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_connections_bucket - rcmgr_trace_metrics_peer_connections_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
-          "legendFormat": "max {{dir}} connections per peer",
+          "legendFormat": "max {{dir}} connections per peer – {{instance}}",
           "refId": "C"
         }
       ],
@@ -1185,7 +1185,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
-          "expr": "rcmgr_trace_metrics_peer_connections_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"inbound\"}",
+          "expr": "sum without (instance) (rcmgr_trace_metrics_peer_connections_bucket{dir=\"inbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"inbound\"})",
           "format": "heatmap",
           "hide": false,
           "interval": "",
@@ -1193,7 +1193,7 @@
           "refId": "A"
         }
       ],
-      "title": "Current inbound connections per peer histogram",
+      "title": "Current inbound connections per peer histogram. Across all instances",
       "type": "bargauge"
     },
     {
@@ -1250,7 +1250,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
-          "expr": "rcmgr_trace_metrics_peer_connections_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"outbound\"}  ",
+          "expr": "sum without (instance) (rcmgr_trace_metrics_peer_connections_bucket{dir=\"outbound\"}-rcmgr_trace_metrics_peer_connections_negative_bucket{dir=\"outbound\"})",
           "format": "heatmap",
           "hide": false,
           "interval": "",
@@ -1258,7 +1258,7 @@
           "refId": "A"
         }
       ],
-      "title": "Curent outbound connections per peer histogram",
+      "title": "Curent outbound connections per peer histogram. Across all instances",
       "type": "bargauge"
     },
     {
@@ -1447,7 +1447,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_memory{scope=\"protocol\"}",
           "interval": "",
-          "legendFormat": "{{protocol}}",
+          "legendFormat": "{{protocol}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -1537,7 +1537,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_memory{scope=\"service\"}",
           "interval": "",
-          "legendFormat": "{{service}}",
+          "legendFormat": "{{service}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -1788,7 +1788,7 @@
           "exemplar": true,
           "expr": "rcmgr_trace_metrics_fds",
           "interval": "",
-          "legendFormat": "{{scope}}",
+          "legendFormat": "{{scope}} {{instance}}",
           "refId": "A"
         }
       ],
