@@ -1,6 +1,7 @@
 package rcmgr
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -134,6 +135,23 @@ type LimitConfig struct {
 
 	Conn   BaseLimit `json:",omitempty"`
 	Stream BaseLimit `json:",omitempty"`
+}
+
+func (cfg *LimitConfig) MarshalJSON() ([]byte, error) {
+	// we want to marshal the encoded peer id
+	encodedPeerMap := make(map[string]BaseLimit, len(cfg.Peer))
+	for p, v := range cfg.Peer {
+		encodedPeerMap[peer.Encode(p)] = v
+	}
+
+	type Alias LimitConfig
+	return json.Marshal(&struct {
+		*Alias
+		Peer map[string]BaseLimit `json:",omitempty"`
+	}{
+		Alias: (*Alias)(cfg),
+		Peer:  encodedPeerMap,
+	})
 }
 
 func (cfg *LimitConfig) Apply(c LimitConfig) {
