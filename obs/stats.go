@@ -320,11 +320,13 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 		tags := []tag.Mutator{tag.Upsert(scopeTag, scopeName), tag.Upsert(resourceTag, resource)}
 
 		if evt.DeltaIn != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
+			tagsWithDir := append([]tag.Mutator{tag.Insert(directionTag, "inbound")}, tags...)
+			stats.RecordWithTags(ctx, tagsWithDir, blockedResources.M(int64(1)))
 		}
 
 		if evt.DeltaOut != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
+			tagsWithDir := append([]tag.Mutator{tag.Insert(directionTag, "outbound")}, tags...)
+			stats.RecordWithTags(ctx, tagsWithDir, blockedResources.M(int64(1)))
 		}
 
 		if evt.Delta != 0 {
