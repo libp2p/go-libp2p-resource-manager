@@ -1588,7 +1588,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1615,9 +1616,6 @@
               {
                 "id": "custom.axisPlacement",
                 "value": "right"
-              },
-              {
-                "id": "unit"
               }
             ]
           }
@@ -1648,7 +1646,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "histogram_quantile(0.50, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
+          "expr": "histogram_quantile(0.50, sum by (le) (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
+          "hide": false,
           "interval": "",
           "legendFormat": "p50 memory usage per peer",
           "refId": "A"
@@ -1659,7 +1658,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "histogram_quantile(0.90, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
+          "expr": "histogram_quantile(0.90, sum by (le) (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
           "legendFormat": "p90 memory usage per peer",
@@ -1671,7 +1670,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "histogram_quantile(1, (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
+          "expr": "histogram_quantile(1, sum by (le) (rcmgr_trace_metrics_peer_memory_bucket - rcmgr_trace_metrics_peer_memory_negative_bucket)) - 0.1",
           "hide": false,
           "interval": "",
           "legendFormat": "max memory usage per peer",
@@ -1682,15 +1681,18 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "rcmgr_trace_metrics_peer_memory_count-rcmgr_trace_metrics_peer_memory_negative_count",
+          "expr": "sum(rcmgr_trace_metrics_peer_memory_count-rcmgr_trace_metrics_peer_memory_negative_count)",
           "hide": false,
+          "instant": false,
           "interval": "",
           "legendFormat": "Number of peers aggregated",
+          "range": true,
           "refId": "D"
         }
       ],
-      "title": "Memory reservations per peer, aggregated",
+      "title": "Memory reservations per peer, aggregated across all instances",
       "type": "timeseries"
     },
     {
