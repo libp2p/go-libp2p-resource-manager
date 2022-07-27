@@ -317,14 +317,22 @@ func (r StatsTraceReporter) ConsumeEvent(evt rcmgr.TraceEvt) {
 		// Drop the connection or stream id
 		scopeName = strings.SplitN(scopeName, "-", 2)[0]
 
+		// If something else gets added here, make sure to update the size hint
+		// below when we make `tagsWithDir`.
 		tags := []tag.Mutator{tag.Upsert(scopeTag, scopeName), tag.Upsert(resourceTag, resource)}
 
 		if evt.DeltaIn != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
+			tagsWithDir := make([]tag.Mutator, 3)
+			tagsWithDir = append(tagsWithDir, tag.Insert(directionTag, "inbound"))
+			tagsWithDir = append(tagsWithDir, tags...)
+			stats.RecordWithTags(ctx, tagsWithDir[0:], blockedResources.M(int64(1)))
 		}
 
 		if evt.DeltaOut != 0 {
-			stats.RecordWithTags(ctx, tags, blockedResources.M(int64(1)))
+			tagsWithDir := make([]tag.Mutator, 3)
+			tagsWithDir = append(tagsWithDir, tag.Insert(directionTag, "outbound"))
+			tagsWithDir = append(tagsWithDir, tags...)
+			stats.RecordWithTags(ctx, tagsWithDir, blockedResources.M(int64(1)))
 		}
 
 		if evt.Delta != 0 {
