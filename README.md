@@ -335,6 +335,16 @@ There is also an included Grafana dashboard to help kickstart your
 observability into the resource manager. Find more information about it at
 `./obs/grafana-dashboards/README.md`.
 
+## Allowlisting multiaddrs to mitigate eclipse attacks
+
+If you have a set of trusted peers and IP addresses, you can use the resource
+manager's [Allowlist](./docs/allowlist.md) to protect yourself from eclipse
+attacks. The set of peers in the allowlist will have their own limits in case
+the normal limits are reached. This means you will always be able to connect to
+these trusted peers even if you've already reached your system limits.
+
+Look at `WithAllowlistedMultiaddrs` and its example in the GoDoc to learn more.
+
 ## Examples
 
 Here we consider some concrete examples that can ellucidate the abstract
