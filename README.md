@@ -29,7 +29,7 @@ computational time) at the system level. They are also a scarce
 resource, as typically (unless the user explicitly intervenes) they
 are constrained by the system. Exhaustion of file descriptors may
 render the application incapable of operating (e.g. because it is
-unable to open a file), most importantly for libp2p because most
+unable to open a file), this is important for libp2p because most
 operating systems represent sockets as file descriptors.
 
 ### Connections
@@ -301,7 +301,7 @@ anamoly.
 
 Sometimes disabling all limits is useful when you want to see how much
 resources you use during normal operation. You can then use this information to
-define your initial limits.
+define your initial limits. Disable the limits by using `InfiniteLimits`.
 
 ### Debug "resource limit exceeded" errors
 
