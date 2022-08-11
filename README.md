@@ -302,7 +302,7 @@ tweakedDefaults.ProtocolBaseLimit.Apply(BaseLimit{
 ### How to tune your limits
 
 Once you've set your limits and monitoring (see [Monitoring](#monitoring) below) you can now tune your
-limits better.  The `blocked_resources` metric will tell you what was blocked
+limits better.  ??? The `blocked_resources` metric will tell you what was blocked
 and for what scope. If you see a steady stream of these blocked requests it
 means your resource limits are too low for your usage. If you see a rare sudden
 spike, this is okay and it means the resource manager protected you from some
@@ -320,7 +320,7 @@ These errors occur whenever a limit is hit. For example you'll get this error if
 you are at your limit for the number of streams you can have, and you try to
 open one more.
 
-If you're seeing a lot of "resource limit exceeded" errors take a look at the
+??? If you're seeing a lot of "resource limit exceeded" errors take a look at the
 `blocked_resources` metric for some information on what was blocked. Also take
 a look at the resources used per stream, and per protocol (the Grafana
 Dashboard is ideal for this) and check if you're routinely hitting limits or if
@@ -335,7 +335,7 @@ routinely.
 Once you have limits set, you'll want to monitor to see if you're running into
 your limits often. This could be a sign that you need to raise your limits
 (your process is more intensive than you originally thought) or that you need
-fix something in your application (surely you don't need over 1000 streams?).
+to fix something in your application (surely you don't need over 1000 streams?).
 
 There are OpenCensus metrics that can be hooked up to the resource manager. See
 `obs/stats_test.go` for an example on how to enable this, and `DefaultViews` in
@@ -344,7 +344,7 @@ or any other OpenCensus supported platform.
 
 There is also an included Grafana dashboard to help kickstart your
 observability into the resource manager. Find more information about it at
-`./obs/grafana-dashboards/README.md`.
+[here](./obs/grafana-dashboards/README.md).
 
 ## Allowlisting multiaddrs to mitigate eclipse attacks
 
@@ -408,7 +408,7 @@ implements `net.Error` and is marked as temporary, so that the
 programmer can handle by backoff retry.
 
 ## Usage
-
+???
 This package provides a limiter implementation that applies fixed limits:
 ```go
 limiter := NewFixedLimiter(limits)
