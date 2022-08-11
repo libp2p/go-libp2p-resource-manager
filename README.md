@@ -269,7 +269,7 @@ For Example, calling `Scale` with 4 GB of memory will result in a limit of 384 f
 
 The `FDFraction` defines how many of the file descriptors are allocated to this
 scope. In the example above, when called with a file descriptor value of 1000,
-this would result in a limit of 1256 file descriptors for the system scope.
+this would result in a limit of 1000 (1000 * 1) file descriptors for the system scope.
 
 Note that we only showed the configuration for the system scope here, equivalent
 configuration options apply to all other scopes as well.
