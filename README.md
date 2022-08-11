@@ -284,13 +284,24 @@ go-libp2p process. For the default definitions see `DefaultLimits` and
 ### Tweaking Defaults
 
 If the defaults seem mostly okay, but you want to adjust one facet you can do
-simply copy the defaults and update the field you want to change. You can
+simply copy the default struct object and update the field you want to change. You can
 apply changes to a `BaseLimit`, `BaseLimitIncrease`, and `LimitConfig` with
 `.Apply`.
 
+Example
+```
+// An example on how to tweak the default limits
+tweakedDefaults := DefaultLimits
+tweakedDefaults.ProtocolBaseLimit.Apply(BaseLimit{
+  Streams:         1024,
+  StreamsInbound:  512,
+  StreamsOutbound: 512,
+})
+```
+
 ### How to tune your limits
 
-Once you've set your limits and monitoring (see below) you can now tune your
+Once you've set your limits and monitoring (see [Monitoring](#monitoring) below) you can now tune your
 limits better.  The `blocked_resources` metric will tell you what was blocked
 and for what scope. If you see a steady stream of these blocked requests it
 means your resource limits are too low for your usage. If you see a rare sudden
@@ -305,9 +316,9 @@ define your initial limits. Disable the limits by using `InfiniteLimits`.
 
 ### Debug "resource limit exceeded" errors
 
-These errors occur whenever we've hit a limit. For example we'll get this error
-if we are at our limit for the number of streams we can have, and we try to open
-one more.
+These errors occur whenever a limit is hit. For example you'll get this error if
+you are at your limit for the number of streams you can have, and you try to
+open one more.
 
 If you're seeing a lot of "resource limit exceeded" errors take a look at the
 `blocked_resources` metric for some information on what was blocked. Also take
