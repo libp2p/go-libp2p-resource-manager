@@ -254,7 +254,7 @@ func (cfg *LimitConfig) Apply(c LimitConfig) {
 }
 
 // Scale scales up a limit configuration.
-// memory is the amount of memory that the stack is allowed to consume,
+// memory is the amount of memory in bytes that the stack is allowed to consume,
 // for a full it's recommended to use 1/8 of the installed system memory.
 // If memory is smaller than 128 MB, the base configuration will be used.
 //
