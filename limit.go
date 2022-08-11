@@ -127,6 +127,8 @@ func (l *BaseLimit) Apply(l2 BaseLimit) {
 }
 
 // BaseLimitIncrease is the increase per GB of system memory.
+// Memory is in bytes.  Values greater than 1<<30 likely don't make sense.
+// FDFraction is expected to be >= 0 and <= 1.
 type BaseLimitIncrease struct {
 	Streams         int
 	StreamsInbound  int
