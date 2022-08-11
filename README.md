@@ -219,7 +219,7 @@ struct defines the absolutely bare minimum limits, and an (optional) increase of
 these limits, which will be applied on nodes that have sufficient memory.
 
 A `ScalingLimitConfig` can be converted into a `LimitConfig` (which can then be
-used to initialize a fixed limiter as shown ???above???) by calling the `Scale` method.
+used to initialize a fixed limiter as shown above) by calling the `Scale` method.
 The `Scale` method takes two parameters: the amount of memory and the number of file
 descriptors that an application is willing to dedicate to libp2p.
 
@@ -269,7 +269,7 @@ For Example, calling `Scale` with 4 GB of memory will result in a limit of 384 f
 
 The `FDFraction` defines how many of the file descriptors are allocated to this
 scope. In the example above, when called with a file descriptor value of 1000,
-this would result in a limit of ???1256 how is this calculated??? file descriptors for the system scope.
+this would result in a limit of 1256 file descriptors for the system scope.
 
 Note that we only showed the configuration for the system scope here, equivalent
 configuration options apply to all other scopes as well.
@@ -291,6 +291,7 @@ apply changes to a `BaseLimit`, `BaseLimitIncrease`, and `LimitConfig` with
 Example
 ```
 // An example on how to tweak the default limits
+// Is this correct?
 tweakedDefaults := DefaultLimits
 tweakedDefaults.ProtocolBaseLimit.Apply(BaseLimit{
   Streams:         1024,
