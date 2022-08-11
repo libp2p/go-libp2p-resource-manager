@@ -21,11 +21,11 @@ import (
 )
 
     func SetupResourceManager() (network.ResourceManager, error) {
-        // Hook up the trace reporter metrics
+        // Hook up the trace reporter metrics. This will expose all opencensus 
+        // stats via the default prometheus registry. See https://opencensus.io/exporters/supported-exporters/go/prometheus/ for other options.
         view.Register(rcmgrObs.DefaultViews...)
         ocprom.NewExporter(ocprom.Options{
             Registry:  prometheus.DefaultRegisterer.(*prometheus.Registry),
-            Namespace: "rcmgr_trace_metrics",
         })
 
         str, err := rcmgrObs.NewStatsTraceReporter()
