@@ -1,3 +1,12 @@
+/*
+Package rcmgr is the resource manager for go-libp2p. This allows you to track
+resources being used throughout your go-libp2p process. As well as making sure
+that the process doesn't use more resources than what you define as your
+limits. The resource manager only knows about things it is told about, so it's
+the responsibility of the user of this library (either go-libp2p or a go-libp2p
+user) to make sure they check with the resource manager before actually
+allocating the resource.
+*/
 package rcmgr
 
 import (
