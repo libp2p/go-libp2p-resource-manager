@@ -291,7 +291,6 @@ apply changes to a `BaseLimit`, `BaseLimitIncrease`, and `LimitConfig` with
 Example
 ```
 // An example on how to tweak the default limits
-// Is this correct?
 tweakedDefaults := DefaultLimits
 tweakedDefaults.ProtocolBaseLimit.Apply(BaseLimit{
   Streams:         1024,
