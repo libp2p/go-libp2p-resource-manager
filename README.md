@@ -28,13 +28,13 @@ File descriptors are an important resource that uses memory (and
 computational time) at the system level. They are also a scarce
 resource, as typically (unless the user explicitly intervenes) they
 are constrained by the system. Exhaustion of file descriptors may
-render the application incapable of operating (e.g. because it is
-unable to open a file), this is important for libp2p because most
+render the application incapable of operating (e.g., because it is
+unable to open a file).  This is important for libp2p because most
 operating systems represent sockets as file descriptors.
 
 ### Connections
 
-Connections are a higher level concept endemic to libp2p; in order to
+Connections are a higher-level concept endemic to libp2p; in order to
 communicate with another peer, a connection must first be
 established. Connections are an important resource in libp2p, as they
 consume memory, goroutines, and possibly file descriptors.
@@ -198,11 +198,11 @@ uses a buffer.
 ## Limits
 
 Each resource scope has an associated limit object, which designates
-limits for all basic resources.  The limit is checked every time some
+limits for all [basic resources](#basic-resources).  The limit is checked every time some
 resource is reserved and provides the system with an opportunity to
 constrain resource usage.
 
-There are separate limits for each class of scope, allowing us for
+There are separate limits for each class of scope, allowing for
 multiresolution and aggregate resource accounting.  As such, we have
 limits for the system and transient scopes, default and specific
 limits for services, protocols, and peers, and limits for connections
@@ -219,11 +219,11 @@ struct defines the absolutely bare minimum limits, and an (optional) increase of
 these limits, which will be applied on nodes that have sufficient memory.
 
 A `ScalingLimitConfig` can be converted into a `LimitConfig` (which can then be
-used to initialize a fixed limiter as shown above) by calling the `Scale` method.
+used to initialize a fixed limiter as shown ???above???) by calling the `Scale` method.
 The `Scale` method takes two parameters: the amount of memory and the number of file
 descriptors that an application is willing to dedicate to libp2p.
 
-These amounts will differ between use cases: A blockchain node running on a dedicated
+These amounts will differ between use cases. A blockchain node running on a dedicated
 server might have a lot of memory, and dedicate 1/4 of that memory to libp2p. On the
 other end of the spectrum, a desktop companion application running as a background
 task on a consumer laptop will probably dedicate significantly less than 1/4 of its system
@@ -269,7 +269,7 @@ For Example, calling `Scale` with 4 GB of memory will result in a limit of 384 f
 
 The `FDFraction` defines how many of the file descriptors are allocated to this
 scope. In the example above, when called with a file descriptor value of 1000,
-this would result in a limit of 1256 file descriptors for the system scope.
+this would result in a limit of ???1256 how is this calculated??? file descriptors for the system scope.
 
 Note that we only showed the configuration for the system scope here, equivalent
 configuration options apply to all other scopes as well.
@@ -278,12 +278,12 @@ configuration options apply to all other scopes as well.
 
 By default the resource manager ships with some reasonable scaling limits and
 makes a reasonable guess at how much system memory you want to dedicate to the
-go-libp2p process. For the default definitions see `DefaultLimits` and
-`ScalingLimitConfig.AutoScale()`.
+go-libp2p process. For the default definitions see [`DefaultLimits` and
+`ScalingLimitConfig.AutoScale()`](./limit_defaults.go).
 
 ### Tweaking Defaults
 
-If the defaults seem mostly okay, but you want to adjust one facet you can do
+If the defaults seem mostly okay, but you want to adjust one facet you can
 simply copy the default struct object and update the field you want to change. You can
 apply changes to a `BaseLimit`, `BaseLimitIncrease`, and `LimitConfig` with
 `.Apply`.
