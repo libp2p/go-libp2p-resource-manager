@@ -86,3 +86,33 @@ func TestScaling(t *testing.T) {
 
 	})
 }
+
+func TestReadmeExample(t *testing.T) {
+	scalingLimits := ScalingLimitConfig{
+		SystemBaseLimit: BaseLimit{
+			ConnsInbound:    64,
+			ConnsOutbound:   128,
+			Conns:           128,
+			StreamsInbound:  512,
+			StreamsOutbound: 1024,
+			Streams:         1024,
+			Memory:          128 << 20,
+			FD:              256,
+		},
+		SystemLimitIncrease: BaseLimitIncrease{
+			ConnsInbound:    32,
+			ConnsOutbound:   64,
+			Conns:           64,
+			StreamsInbound:  256,
+			StreamsOutbound: 512,
+			Streams:         512,
+			Memory:          256 << 20,
+			FDFraction:      1,
+		},
+	}
+
+	limitConf := scalingLimits.Scale(4<<30, 1000)
+
+	require.Equal(t, limitConf.System.Conns, 376)
+	require.Equal(t, limitConf.System.FD, 1000)
+}
