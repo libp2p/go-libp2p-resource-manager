@@ -262,14 +262,15 @@ var scalingLimits = ScalingLimitConfig{
 
 The base limit (`SystemBaseLimit`) here is the minimum configuration that any
 node will have, no matter how little memory it possesses. For every GB of memory
-passed into the `Scale` method, an increase  of (`SystemLimitIncrease`) is added.
+passed into the `Scale` method, an increase of (`SystemLimitIncrease`) is added.
 
 For Example, calling `Scale` with 4 GB of memory will result in a limit of 384 for
 `Conns` (128 + 4*64).
 
 The `FDFraction` defines how many of the file descriptors are allocated to this
 scope. In the example above, when called with a file descriptor value of 1000,
-this would result in a limit of 1000 (1000 * 1) file descriptors for the system scope.
+this would result in a limit of 1000 (1000 * 1) file descriptors for the system
+scope. See `TestReadmeExample` in `limit_test.go`.
 
 Note that we only showed the configuration for the system scope here, equivalent
 configuration options apply to all other scopes as well.

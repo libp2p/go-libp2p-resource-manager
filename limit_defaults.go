@@ -254,56 +254,52 @@ func (cfg *LimitConfig) Apply(c LimitConfig) {
 }
 
 // Scale scales up a limit configuration.
-// memory is the amount of memory in bytes that the stack is allowed to consume,
-// for a full it's recommended to use 1/8 of the installed system memory.
+// memory is the amount of memory that the stack is allowed to consume,
+// for a dedicated node it's recommended to use 1/8 of the installed system memory.
 // If memory is smaller than 128 MB, the base configuration will be used.
 //
 func (cfg *ScalingLimitConfig) Scale(memory int64, numFD int) LimitConfig {
-	var scaleFactor int
-	if memory > 128<<20 {
-		scaleFactor = int((memory - 128<<20) >> 20)
-	}
 	lc := LimitConfig{
-		System:               scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, scaleFactor, numFD),
-		Transient:            scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, scaleFactor, numFD),
-		AllowlistedSystem:    scale(cfg.AllowlistedSystemBaseLimit, cfg.AllowlistedSystemLimitIncrease, scaleFactor, numFD),
-		AllowlistedTransient: scale(cfg.AllowlistedTransientBaseLimit, cfg.AllowlistedTransientLimitIncrease, scaleFactor, numFD),
-		ServiceDefault:       scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, scaleFactor, numFD),
-		ServicePeerDefault:   scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, scaleFactor, numFD),
-		ProtocolDefault:      scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, scaleFactor, numFD),
-		ProtocolPeerDefault:  scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, scaleFactor, numFD),
-		PeerDefault:          scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, scaleFactor, numFD),
-		Conn:                 scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
-		Stream:               scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, scaleFactor, numFD),
+		System:               scale(cfg.SystemBaseLimit, cfg.SystemLimitIncrease, memory, numFD),
+		Transient:            scale(cfg.TransientBaseLimit, cfg.TransientLimitIncrease, memory, numFD),
+		AllowlistedSystem:    scale(cfg.AllowlistedSystemBaseLimit, cfg.AllowlistedSystemLimitIncrease, memory, numFD),
+		AllowlistedTransient: scale(cfg.AllowlistedTransientBaseLimit, cfg.AllowlistedTransientLimitIncrease, memory, numFD),
+		ServiceDefault:       scale(cfg.ServiceBaseLimit, cfg.ServiceLimitIncrease, memory, numFD),
+		ServicePeerDefault:   scale(cfg.ServicePeerBaseLimit, cfg.ServicePeerLimitIncrease, memory, numFD),
+		ProtocolDefault:      scale(cfg.ProtocolBaseLimit, cfg.ProtocolLimitIncrease, memory, numFD),
+		ProtocolPeerDefault:  scale(cfg.ProtocolPeerBaseLimit, cfg.ProtocolPeerLimitIncrease, memory, numFD),
+		PeerDefault:          scale(cfg.PeerBaseLimit, cfg.PeerLimitIncrease, memory, numFD),
+		Conn:                 scale(cfg.ConnBaseLimit, cfg.ConnLimitIncrease, memory, numFD),
+		Stream:               scale(cfg.StreamBaseLimit, cfg.ConnLimitIncrease, memory, numFD),
 	}
 	if cfg.ServiceLimits != nil {
 		lc.Service = make(map[string]BaseLimit)
 		for svc, l := range cfg.ServiceLimits {
-			lc.Service[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Service[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, memory, numFD)
 		}
 	}
 	if cfg.ProtocolLimits != nil {
 		lc.Protocol = make(map[protocol.ID]BaseLimit)
 		for proto, l := range cfg.ProtocolLimits {
-			lc.Protocol[proto] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Protocol[proto] = scale(l.BaseLimit, l.BaseLimitIncrease, memory, numFD)
 		}
 	}
 	if cfg.PeerLimits != nil {
 		lc.Peer = make(map[peer.ID]BaseLimit)
 		for p, l := range cfg.PeerLimits {
-			lc.Peer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.Peer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, memory, numFD)
 		}
 	}
 	if cfg.ServicePeerLimits != nil {
 		lc.ServicePeer = make(map[string]BaseLimit)
 		for svc, l := range cfg.ServicePeerLimits {
-			lc.ServicePeer[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.ServicePeer[svc] = scale(l.BaseLimit, l.BaseLimitIncrease, memory, numFD)
 		}
 	}
 	if cfg.ProtocolPeerLimits != nil {
 		lc.ProtocolPeer = make(map[protocol.ID]BaseLimit)
 		for p, l := range cfg.ProtocolPeerLimits {
-			lc.ProtocolPeer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, scaleFactor, numFD)
+			lc.ProtocolPeer[p] = scale(l.BaseLimit, l.BaseLimitIncrease, memory, numFD)
 		}
 	}
 	return lc
@@ -316,20 +312,30 @@ func (cfg *ScalingLimitConfig) AutoScale() LimitConfig {
 	)
 }
 
-// factor is the number of MBs above the minimum (128 MB)
-func scale(base BaseLimit, inc BaseLimitIncrease, factor int, numFD int) BaseLimit {
+func scale(base BaseLimit, inc BaseLimitIncrease, memory int64, numFD int) BaseLimit {
+	// mebibytesAvailable represents how many MiBs we're allowed to use. Used to
+	// scale the limits. If this is below 128MiB we set it to 0 to just use the
+	// base amounts.
+	var mebibytesAvailable int
+	if memory > 128<<20 {
+		mebibytesAvailable = int((memory) >> 20)
+	}
 	l := BaseLimit{
-		StreamsInbound:  base.StreamsInbound + (inc.StreamsInbound*factor)>>10,
-		StreamsOutbound: base.StreamsOutbound + (inc.StreamsOutbound*factor)>>10,
-		Streams:         base.Streams + (inc.Streams*factor)>>10,
-		ConnsInbound:    base.ConnsInbound + (inc.ConnsInbound*factor)>>10,
-		ConnsOutbound:   base.ConnsOutbound + (inc.ConnsOutbound*factor)>>10,
-		Conns:           base.Conns + (inc.Conns*factor)>>10,
-		Memory:          base.Memory + (inc.Memory*int64(factor))>>10,
+		StreamsInbound:  base.StreamsInbound + (inc.StreamsInbound*mebibytesAvailable)>>10,
+		StreamsOutbound: base.StreamsOutbound + (inc.StreamsOutbound*mebibytesAvailable)>>10,
+		Streams:         base.Streams + (inc.Streams*mebibytesAvailable)>>10,
+		ConnsInbound:    base.ConnsInbound + (inc.ConnsInbound*mebibytesAvailable)>>10,
+		ConnsOutbound:   base.ConnsOutbound + (inc.ConnsOutbound*mebibytesAvailable)>>10,
+		Conns:           base.Conns + (inc.Conns*mebibytesAvailable)>>10,
+		Memory:          base.Memory + (inc.Memory*int64(mebibytesAvailable))>>10,
 		FD:              base.FD,
 	}
 	if inc.FDFraction > 0 && numFD > 0 {
 		l.FD = int(inc.FDFraction * float64(numFD))
+		if l.FD < base.FD {
+			// Use at least the base amount
+			l.FD = base.FD
+		}
 	}
 	return l
 }
