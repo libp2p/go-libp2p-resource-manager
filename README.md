@@ -12,7 +12,7 @@ checks if the resource being requested is currently below the defined limits and
 returns an error if the limit is reached. It has no notion of honest vs bad peers.
 
 The Resource Manager does have a special notion of [allowlisted](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) multiaddrs that
-have their own connection limits if the normal system limits are reached.
+have their own limits if the normal system limits are reached.
 
 ## Usage
 
@@ -378,7 +378,7 @@ Example Log:
 
 The log line above is an example log line that gets emitted if you enable debug
 logging in the resource manager. You can do this by setting the environment
-variable `GOLOG_LOG_LEVEL="canonical-log=info"`. By defualt only the error is
+variable `GOLOG_LOG_LEVEL="rcmgr=info"`. By default only the error is
 returned to the caller, and nothing is logged by the resource manager itself.
 
 The log line message (and returned error) will tell you which resource limit was
