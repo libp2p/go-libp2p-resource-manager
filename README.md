@@ -317,19 +317,50 @@ define your initial limits. Disable the limits by using `InfiniteLimits`.
 
 ### Debug "resource limit exceeded" errors
 
-These errors occur whenever a limit is hit. For example you'll get this error if
+These errors occur whenever a limit is hit. For example, you'll get this error if
 you are at your limit for the number of streams you can have, and you try to
 open one more.
 
-??? If you're seeing a lot of "resource limit exceeded" errors take a look at the
-`blocked_resources` metric for some information on what was blocked. Also take
-a look at the resources used per stream, and per protocol (the Grafana
-Dashboard is ideal for this) and check if you're routinely hitting limits or if
-these are rare (but noisy) spikes.
+Example Log:
+```
+2022-08-12T15:49:35.459-0700	DEBUG	rcmgr	go-libp2p-resource-manager@v0.5.3/scope.go:541	blocked connection from constraining edge	{"scope": "conn-19667", "edge": "system", "direction": "Inbound", "usefd": false, "current": 100, "attempted": 1, "limit": 100, "stat": {"NumStreamsInbound":28,"NumStreamsOutbound":66,"NumConnsInbound":37,"NumConnsOutbound":63,"NumFD":33,"Memory":8687616}, "error": "system: cannot reserve connection: resource limit exceeded"}
+```
 
-When debugging in general, in may help to search your logs for errors that match
-the string "resource limit exceeded" to see if you're hitting some limits
-routinely.
+The log line above is an example log line that gets emitted if you enable debug
+logging in the resource manager. You can do this by setting the environment
+variable `GOLOG_LOG_LEVEL="canonical-log=info"`. By defualt only the error is
+returned to the caller, and nothing is logged by the resource manager itself.
+
+The log line message (and returned error) will tell you which resource limit was
+hit (connection in the log above) and what blocked it (in this case it was the
+system scope that blocked it). The log will also include some more information
+about the current usage of the resources. In the example log above, there is a
+limit of 100 connections, and you can see that we have 37 inbound connections
+and 63 outbound connections. We've reached the limit and the resource manager
+will block any further connections.
+
+The next step in debugging is seeing if this is a recurring problem or just a
+transient error. If it's a transient error it's okay to ignore it since the
+resource manager was doing its job in keeping resource usage under the limit. If
+it's recurring then you should understand what's causing you to hit these limits
+and either refactor your application or raise the limits.
+
+To check if it's a recurring problem you can count the number of times you've
+seen the `"resource limit exceeded"` error over time. You can also check the
+`rcmgr_blocked_resources` metric to see how many times the resource manager has
+blocked a resource over time.
+
+![Example graph of blocked resources over time](https://bafybeihlrlt47wcxghzzcbqzd7uievzfntw7py4tinvguqxr4z5xtgkk34.ipfs.dweb.link/)
+
+If the resource is blocked by a protocol-level scope, take a look at the various
+resource usages in the metrics. For example, if you run into a new stream being blocked,
+you can check the
+`rcmgr_streams` metric and the "Streams by protocol" graph in the Grafana
+dashboard (assuming you've set that up or something similar – see
+[Monitoring](#monitoring)) to understand the usage pattern of that specific
+protocol. This can help answer questions such as: "Am I constantly around my
+limit?", "Does it make sense to raise my limit?", "Are there any patterns around
+hitting this limit?", and "should I refactor my protocol implementation?"
 
 ## Monitoring
 
