@@ -7,6 +7,43 @@ The implementation is based on the concept of Resource Management
 Scopes, whereby resource usage is constrained by a DAG of scopes,
 accounting for multiple levels of resource constraints.
 
+## Usage
+
+The Resource Manager is intended to be used with go-libp2p. go-libp2p sets up a
+resource manager with the default autoscaled limits if none is provided, but if
+you want to configure things or if you want to enable metrics you'll use the
+resource manager like so:
+
+```go
+// Start with the default scaling limits.
+scalingLimits := rcmgr.DefaultLimits
+
+// Add limits around included libp2p protocols
+libp2p.SetDefaultServiceLimits(&scalingLimits)
+
+// Turn the scaling limits into a static set of limits using `.AutoScale`. This
+// scales the limits proportional to your system memory.
+limits := scalingLimits.AutoScale()
+
+// The resource manager expects a limiter, se we create one from our limits.
+limiter := rcmgr.NewFixedLimiter(limits)
+
+// (Optional if you want metrics) Construct the OpenCensus metrics reporter.
+str, err := rcmgrObs.NewStatsTraceReporter()
+if err != nil {
+  panic(err)
+}
+
+// Initialize the resource manager
+rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithTraceReporter(str))
+if err != nil {
+  panic(err)
+}
+
+// Create a libp2p host
+host, err := libp2p.New(libp2p.ResourceManager(rm))
+```
+
 ## Basic Resources
 
 ### Memory
@@ -219,7 +256,7 @@ struct defines the absolutely bare minimum limits, and an (optional) increase of
 these limits, which will be applied on nodes that have sufficient memory.
 
 A `ScalingLimitConfig` can be converted into a `LimitConfig` (which can then be
-used to initialize a fixed limiter as shown above) by calling the `Scale` method.
+used to initialize a fixed limiter with `NewFixedLimiter`) by calling the `Scale` method.
 The `Scale` method takes two parameters: the amount of memory and the number of file
 descriptors that an application is willing to dedicate to libp2p.
 
@@ -293,21 +330,19 @@ Example
 ```
 // An example on how to tweak the default limits
 tweakedDefaults := DefaultLimits
-tweakedDefaults.ProtocolBaseLimit.Apply(BaseLimit{
-  Streams:         1024,
-  StreamsInbound:  512,
-  StreamsOutbound: 512,
-})
+tweakedDefaults.ProtocolBaseLimit.Streams = 1024
+tweakedDefaults.ProtocolBaseLimit.StreamsInbound = 512
+tweakedDefaults.ProtocolBaseLimit.StreamsOutbound = 512
 ```
 
 ### How to tune your limits
 
-Once you've set your limits and monitoring (see [Monitoring](#monitoring) below) you can now tune your
-limits better.  ??? The `blocked_resources` metric will tell you what was blocked
-and for what scope. If you see a steady stream of these blocked requests it
-means your resource limits are too low for your usage. If you see a rare sudden
-spike, this is okay and it means the resource manager protected you from some
-anamoly.
+Once you've set your limits and monitoring (see [Monitoring](#monitoring) below)
+you can now tune your limits better.  The `rcmgr_blocked_resources` metric will
+tell you what was blocked and for what scope. If you see a steady stream of
+these blocked requests it means your resource limits are too low for your usage.
+If you see a rare sudden spike, this is okay and it means the resource manager
+protected you from some anomaly.
 
 ### How to disable limits
 
@@ -388,6 +423,35 @@ these trusted peers even if you've already reached your system limits.
 
 Look at `WithAllowlistedMultiaddrs` and its example in the GoDoc to learn more.
 
+## ConnManager vs Resource Manager
+
+go-libp2p already includes a [connection
+manager](https://pkg.go.dev/github.com/libp2p/go-libp2p-core/connmgr#ConnManager),
+so what's the difference between the `ConnManager` and the `ResourceManager`?
+
+ConnManager:
+1. Configured with a low and high watermark number of connections.
+2. Attempts to maintain the number of connections between the low and hi
+   markers.
+3. Connections can be given metadata and weight of value (e.g. a hole punched
+   connection is more valuable than a connection to a publicly addressable
+   endpoint since it took more effort to make the hole punched connection).
+4. The ConnManager will trim connections once the high watermark is reached.
+5. Won't block adding another connection above the high watermark, but will
+   trigger the trim mentioned above.
+
+Resource Manager:
+1. Configured with a limit on the number of outgoing and incoming connections.
+2. Will block adding any more connections above the limit.
+
+The natural question when comparing these two managers is "how do the watermarks
+and limits interact with each other?". The short answer is that they don't know
+about each other. This can lead to some surprising subtleties, such as the
+trimming never happening because the resource manager's limit is lower than the
+high watermark. This is confusing, and we'd like to fix it. The issue is
+captured in [go-libp2p#1640](https://github.com/libp2p/go-libp2p/issues/1640).
+
+
 ## Examples
 
 Here we consider some concrete examples that can ellucidate the abstract
@@ -439,13 +503,6 @@ aid understanding of applicable limits.  Note that the (wrapped) error
 implements `net.Error` and is marked as temporary, so that the
 programmer can handle by backoff retry.
 
-## Usage
-???
-This package provides a limiter implementation that applies fixed limits:
-```go
-limiter := NewFixedLimiter(limits)
-```
-The `limits` allows fine-grained control of resource usage on all scopes.
 
 ## Implementation Notes
 
@@ -472,11 +529,11 @@ The `limits` allows fine-grained control of resource usage on all scopes.
 - The design must support seamless integration for user applications,
   which should reap the benefits of resource management without any
   changes. That is, existing applications should be oblivious of the
-  resource manager and transparently obtain limits which protect it
+  resource manager and transparently obtain limits which protects it
   from resource exhaustion and OOM conditions.
 - At the same time, the design must support opt-in resource usage
-  accounting for applications who want to explicitly utilize the
+  accounting for applications that want to explicitly utilize the
   facilities of the system to inform about and constrain their own
   resource usage.
-- The design must allow the user to set its own limits, which can be
+- The design must allow the user to set their own limits, which can be
   static (fixed) or dynamic.
