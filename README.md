@@ -439,6 +439,7 @@ ConnManager:
 4. The ConnManager will trim connections once the high watermark is reached.
 5. Won't block adding another connection above the high watermark, but will
    trigger the trim mentioned above.
+6. Can trim and prioritize connections with custom logic.
 
 Resource Manager:
 1. Configured with a limit on the number of outgoing and incoming connections.
