@@ -7,6 +7,13 @@ The implementation is based on the concept of Resource Management
 Scopes, whereby resource usage is constrained by a DAG of scopes,
 accounting for multiple levels of resource constraints.
 
+The Resource Manager doesn't prioritize resource requests at all, it simply
+checks if the resource being requested is currently below the defined limits and
+returns an error if the limit is reached. It has no notion of honest vs bad peers.
+
+The Resource Manager does have a special notion of [allowlisted](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) multiaddrs that
+have their own connection limits if the normal system limits are reached.
+
 ## Usage
 
 The Resource Manager is intended to be used with go-libp2p. go-libp2p sets up a
@@ -151,6 +158,14 @@ constrained by the transient scope.
 The transient scope effectively represents a DMZ (DeMilitarized Zone),
 where resource usage can be accounted for connections and streams that
 are not fully established.
+
+### The Allowlist System and Transient Scope
+
+The allowlist system and transient scopes are the same as the above scopes,
+except they kick in if the normal scopes are already at their limits and the
+resource is from an allowlisted peer. See [Allowlisting multiaddrs to mitigate
+eclipse attacks](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) see for
+more information.
 
 ### Service Scopes
 
