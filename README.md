@@ -159,13 +159,21 @@ The transient scope effectively represents a DMZ (DeMilitarized Zone),
 where resource usage can be accounted for connections and streams that
 are not fully established.
 
-### The Allowlist System and Transient Scope
+### The Allowlist System Scope
 
-The allowlist system and transient scopes are the same as the above scopes,
-except they kick in if the normal scopes are already at their limits and the
-resource is from an allowlisted peer. See [Allowlisting multiaddrs to mitigate
-eclipse attacks](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) see for
-more information.
+Same as the normal system scope above, but is used if the normal system scope is
+already at its limits and the resource is from an allowlisted peer. See
+[Allowlisting multiaddrs to mitigate eclipse
+attacks](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) see for more
+information.
+
+### The Allowlist Transient Scope
+
+Same as the normal transient scope above, but is used if the normal transient
+scope is already at its limits and the resource is from an allowlisted peer. See
+[Allowlisting multiaddrs to mitigate eclipse
+attacks](#allowlisting-multiaddrs-to-mitigate-eclipse-attacks) see for more
+information.
 
 ### Service Scopes
 
@@ -400,7 +408,7 @@ seen the `"resource limit exceeded"` error over time. You can also check the
 `rcmgr_blocked_resources` metric to see how many times the resource manager has
 blocked a resource over time.
 
-![Example graph of blocked resources over time](https://bafybeihlrlt47wcxghzzcbqzd7uievzfntw7py4tinvguqxr4z5xtgkk34.ipfs.dweb.link/)
+![Example graph of blocked resources over time](https://bafkreibul6qipnax5s42abv3jc6bolhd7pju3zbl4rcvdaklmk52f6cznu.ipfs.w3s.link/)
 
 If the resource is blocked by a protocol-level scope, take a look at the various
 resource usages in the metrics. For example, if you run into a new stream being blocked,
@@ -446,19 +454,22 @@ so what's the difference between the `ConnManager` and the `ResourceManager`?
 
 ConnManager:
 1. Configured with a low and high watermark number of connections.
-2. Attempts to maintain the number of connections between the low and hi
+2. Attempts to maintain the number of connections between the low and high
    markers.
-3. Connections can be given metadata and weight of value (e.g. a hole punched
+3. Connections can be given metadata and weight (e.g. a hole punched
    connection is more valuable than a connection to a publicly addressable
    endpoint since it took more effort to make the hole punched connection).
-4. The ConnManager will trim connections once the high watermark is reached.
+4. The ConnManager will trim connections once the high watermark is reached. and
+   trim down to the low watermark.
 5. Won't block adding another connection above the high watermark, but will
    trigger the trim mentioned above.
 6. Can trim and prioritize connections with custom logic.
+7. No concept of scopes (like the resource manager).
 
 Resource Manager:
-1. Configured with a limit on the number of outgoing and incoming connections.
-2. Will block adding any more connections above the limit.
+1. Configured with limits on the number of outgoing and incoming connections at
+   different [resource scopes](#resource-scopes).
+2. Will block adding any more connections if any of the scope-specific limits would be exceeded.
 
 The natural question when comparing these two managers is "how do the watermarks
 and limits interact with each other?". The short answer is that they don't know
@@ -467,6 +478,10 @@ trimming never happening because the resource manager's limit is lower than the
 high watermark. This is confusing, and we'd like to fix it. The issue is
 captured in [go-libp2p#1640](https://github.com/libp2p/go-libp2p/issues/1640).
 
+When configuring the resource manager and connection manager, you should set the
+limits in the resource manager as your hard limits that you would never want to
+go over, and set the low/high watermarks as the range at which your application
+works best.
 
 ## Examples
 
