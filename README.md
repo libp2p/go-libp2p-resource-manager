@@ -1,3 +1,7 @@
+# DEPRECATION NOTICE
+
+This package has moved into go-libp2p as a sub-package, `github.com/libp2p/go-libp2p/p2p/host/resource-manager`.
+
 # The libp2p Network Resource Manager
 
 This package contains the canonical implementation of the libp2p
